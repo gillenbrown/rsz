@@ -1,0 +1,7 @@
+#### FANCY HEADER #####
+
+## Catalog directory: The code will look for catalogs in the directory below. Include the full path.
+catalog_directory = /User/gbbtz7/GoogleDrive/Research/Data/Catalogs/
+
+####   MODEL DATA  #### 
+# TBD
