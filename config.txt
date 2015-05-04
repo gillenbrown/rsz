@@ -1,7 +1,13 @@
 #### FANCY HEADER #####
+###   THE CLUSTERS THIS IS USED ON MUST BE AT z > 0.8!
+###   IF THE CLUSTER IS AT LOWER REDSHFIT THAN THIS IT WILL RETURN WRONG ANSWERS
 
 ## Catalog directory: The code will look for catalogs in the directory below. Include the full path.
 catalog_directory = /User/gbbtz7/GoogleDrive/Research/Data/Catalogs/
 
 ####   MODEL DATA  #### 
-# TBD
+# TODO
+
+
+#####   PLOTS    #######
+# TODO

@@ -5,7 +5,7 @@ def parse_config():
 
     :return: dictionary, with keys of parameter names, and values of the desired values for those parameters.
     """
-    global params
+    global params  # params needs to be available elsewhere
     params = dict()
     config_file = open("config.txt")
     for line in config_file:
