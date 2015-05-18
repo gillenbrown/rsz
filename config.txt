@@ -6,8 +6,11 @@
 catalog_directory = /User/gbbtz7/GoogleDrive/Research/Data/Catalogs/
 
 ####   MODEL DATA  #### 
+# Let the user choose which models to use in the fitting.
+# Warn that the correction is only valid for the default set of models (BC03, etc (Fill this in with the model I actually use))
 # TODO
 
 
 #####   PLOTS    #######
+# Let the user choose which plots to output for each cluster
 # TODO

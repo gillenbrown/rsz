@@ -3,7 +3,8 @@
 def parse_config():
     """Parse the config file, making a dictionary of parameters
 
-    :return: dictionary, with keys of parameter names, and values of the desired values for those parameters.
+    :return: dictionary, with keys of parameter names, and values of the
+    desired values for those parameters.
     """
     global params  # params needs to be available elsewhere
     params = dict()
@@ -21,3 +22,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# TODO: What is the format of the catalogs I will get?
