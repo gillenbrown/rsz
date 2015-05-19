@@ -18,15 +18,33 @@ class Data(object):
         Adds two data objects. The values are added, and the errors are
         added in quadrature. Another data object is returned.
         """
-        new_value = self.value + other.value
-        new_error = math.sqrt((self.error)**2 + (other.error)**2)
-        return Data(new_value, new_error)
+        if type(other) is Data:
+            new_value = self.value + other.value
+            new_error = math.sqrt((self.error)**2 + (other.error)**2)
+            return Data(new_value, new_error)
+        else: # the other object won't have errors, so we can't do anything
+              # with that.
+            new_value = self.value + other
+            return Data(new_value, self.error)
+
+    def __radd__(self, other):
+        return self + other
 
     def __sub__(self, other):
         """ Same as add, but subtracting."""
-        new_value = self.value - other.value
-        new_error = math.sqrt((self.error)**2 + (other.error)**2)
-        return Data(new_value, new_error)
+        if type(other) is Data:
+            new_value = self.value - other.value
+            new_error = math.sqrt((self.error)**2 + (other.error)**2)
+            return Data(new_value, new_error)
+        else:  # the other object won't have errors, so we can't do anything
+               # with that.
+            new_value = self.value - other
+            return Data(new_value, self.error)
+
+    def __rsub__(self, other):
+        result = self - other
+        result.value *= -1
+        return result
 
     
     # define a bunch of comparison operators, using only > and ==
@@ -35,13 +53,13 @@ class Data(object):
     # Python 2.x, so these may return weird stuff. Be careful comparing
     # to class types that aren't numeric in nature.
     def __lt__(self, other):  # less than:  self < other
-        if type(other) is Data:
+        if isinstance(other, Data):
             return self.value < other.value
         else:
             return self.value < other
 
     def __eq__(self, other):  # equality self == other
-        if type(other) is Data:
+        if isinstance(other, Data):
             return self.value == other.value
         else:
             return self.value == other
@@ -57,3 +75,79 @@ class Data(object):
 
     def __le__(self, other):  # less than or equal to: self <= other
         return (self < other) or (self == other)
+
+
+class AsymmetricData(Data):
+    def __init__(self, value, upper_error, lower_error):
+        self.value = value
+        self.error = None  # since we have asymmetric errors
+        self.upper_error = upper_error
+        self.lower_error = lower_error
+
+    def __repr__(self):
+        return str(self.value) + "+" + str(self.upper_error) + \
+               "-" + str(self.lower_error)
+
+    def __add__(self, other):
+        """
+        Addition where upper and lower errors are added in quadrature
+        """
+
+        if type(other) is AsymmetricData:
+            new_value = self.value + other.value
+            new_upper_error = math.sqrt((self.upper_error)**2 +
+                (other.upper_error)**2)
+            new_lower_error = math.sqrt((self.lower_error)**2 +
+                (other.lower_error)**2)
+            return AsymmetricData(new_value, new_upper_error,
+                                  new_lower_error)
+        elif type(other) is Data:
+            new_value = self.value + other.value
+            new_upper_error = math.sqrt((self.upper_error)**2 +
+                (other.error)**2)
+            new_lower_error = math.sqrt((self.lower_error)**2 +
+                (other.error)**2)
+            return AsymmetricData(new_value, new_upper_error,
+                                  new_lower_error)
+        else: # the other object won't have errors, so we can't do
+              # anything with that.
+            new_value = self.value + other
+            return AsymmetricData(new_value, self.upper_error,
+                                  self.lower_error)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __sub__(self, other):
+        """
+        Subtraction where upper and lower errors are added in quadrature
+        """
+
+        if type(other) is AsymmetricData:
+            new_value = self.value - other.value
+            new_upper_error = math.sqrt((self.upper_error)**2 +
+                (other.upper_error)**2)
+            new_lower_error = math.sqrt((self.lower_error)**2 +
+                (other.lower_error)**2)
+            return AsymmetricData(new_value, new_upper_error,
+                                  new_lower_error)
+        elif type(other) is Data:
+            new_value = self.value - other.value
+            new_upper_error = math.sqrt((self.upper_error)**2 +
+                (other.error)**2)
+            new_lower_error = math.sqrt((self.lower_error)**2 +
+                (other.error)**2)
+            return AsymmetricData(new_value, new_upper_error,
+                                  new_lower_error)
+        else: # the other object won't have errors, so we can't do
+              # anything with that.
+            new_value = self.value - other
+            return AsymmetricData(new_value, self.upper_error,
+                                  self.lower_error)
+
+    def __rsub__(self, other):
+        result = self - other
+        result.value *= -1
+        return result
+
+    # comparison operators will be unchanged compared to the symmetric data
