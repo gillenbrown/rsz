@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+import os
+
+from redshift import cluster
+
 def parse_config():
     """Parse the config file, making a dictionary of parameters
 
@@ -19,6 +23,14 @@ def parse_config():
 def main():
     # parse the config file
     params = parse_config()
+
+    catalogs = os.listdir(params["catalog_directory"])
+    for cat in catalogs:
+        filepath = params["catalog_directory"] + cat
+        cl = cluster.Cluster(filepath)
+
+
+
 
 if __name__ == "__main__":
     main()

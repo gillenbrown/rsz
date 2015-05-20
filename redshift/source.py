@@ -19,3 +19,5 @@ class Source(object):
         self.dec = dec
         self.ch1_mag = ch1_mag
         self.ch2_mag = ch2_mag
+        self.near_center = False
+        self.RS_member = False

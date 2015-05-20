@@ -102,7 +102,7 @@ def model_dict(spacing):
 
     #set the formation redshift and observed redshift
     zf = 3.0
-    zs = np.arange(0.5, 1.500001, spacing)
+    zs = np.arange(0.7, 1.800001, spacing)
 
     # normalize to Coma
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,

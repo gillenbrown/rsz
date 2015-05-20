@@ -3,7 +3,7 @@
 ###   IF THE CLUSTER IS AT LOWER REDSHFIT THAN THIS IT WILL RETURN WRONG ANSWERS
 
 ## Catalog directory: The code will look for catalogs in the directory below. Include the full path.
-catalog_directory = /User/gbbtz7/GoogleDrive/Research/Data/Catalogs/
+catalog_directory = /Users/gbbtz7/GoogleDrive/Research/Data/Catalogs/Provided/IRAC/2015run/
 
 ####   MODEL DATA  #### 
 # Let the user choose which models to use in the fitting.
