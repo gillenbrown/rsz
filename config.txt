@@ -15,3 +15,8 @@ catalog_directory = /Users/gbbtz7/GoogleDrive/Research/Data/Catalogs/Provided/IR
 # Let the user choose which plots to output for each cluster
 # TODO: describe each plot in more detail
 CMD = 1
+
+
+########### Location for stuff
+plot_directory = /Users/gbbtz7/GoogleDrive/Research/Plots/IRAC_redshift/
+results_file = /Users/gbbtz7/GoogleDrive/Research/Plots/IRAC_redshift/00results.txt

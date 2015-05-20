@@ -71,9 +71,22 @@ class Cluster(object):
             plotting.add_models(fig, ax)
             figures.append(fig)
 
+        # Do a quick and dirty initial redshift fitting, to get a starting
+        # point.
+        z = self._initial_z()
+        print z
+
+        # TODO: Next: plot this intial redshift, and highlight red sequence
+        # members
+
+
+
+
+
 
         # now that we are all done, save the figures.
-        Cluster.save_as_one_pdf(figures, "test.pdf")
+        Cluster.save_as_one_pdf(figures, params["plot_directory"] +
+                                self.name + ".pdf")
 
 
 
@@ -113,6 +126,51 @@ class Cluster(object):
                 source.near_center = True
             else:
                 source.near_center = False
+
+    def _initial_z(self):
+        """
+        Find a decent initial redshift estimate, based on the number of
+        galaxies near each model.
+
+        It iterates through all redshifts, and counts the number of galaxies
+        that are within XXXXXXX color of the model at that redshift. Then the
+        redshift that has the highest number of galaxies is the
+        redshift selected. It's a quick a dirty estimate.
+
+        :return: an intial redshift estimate
+        """
+
+        # Get models with a large spacing, since we don't need a lot of
+        # accuracy here.
+        models = model.model_dict(0.05)
+
+        # set placeholder values that will be replaced as we go
+        max_nearby = -999
+        best_z = -999
+
+        # Iterate through the redshifts
+        for z in models:
+            nearby = 0  # reset the number of nearby galaxies
+
+            this_model = models[z]
+            mag_point = this_model.mag_point
+            for source in self.sources_list:
+                # get the expected RS color for a galaxy of this magnitude
+                color_point = this_model.rs_color(source.ch2.value)
+                # see if it passes a color and magnitude cut
+                if (mag_point - 1.0 < source.ch2 < mag_point + 1.0) and \
+                   (color_point - 0.2 < source.ch1_m_ch2 < color_point + 0.2):
+                    # if it did pass, note that it is nearby
+                    nearby += 1
+
+            # replace the best values if this is the best
+            if nearby > max_nearby:
+                max_nearby = nearby
+                best_z = z
+
+        return best_z
+
+
 
     @staticmethod
     def save_as_one_pdf(figs, filename):

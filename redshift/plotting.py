@@ -25,8 +25,7 @@ def cmd(cluster):
     # thing I want to plot. This is simpler
     for source in valid_sources:
         mag = source.ch2.value
-        color = source.ch1 - source.ch2
-
+        color = source.ch1_m_ch2
         # red sequence members will be colored red, while non RS galaxies
         # will be colored black.
         if source.RS_member:
@@ -34,7 +33,8 @@ def cmd(cluster):
         else:
             point_color = "k"
 
-        ax.errorbar(x=mag, y=color.value, yerr=color.error, c=point_color)
+        ax.errorbar(x=mag, y=color.value, yerr=color.error, c=point_color,
+                    fmt=".", elinewidth=0.35, capsize=0, markersize=5)
 
     # label and clean up the axes
     ax.set_xlim(18, 23)

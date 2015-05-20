@@ -21,5 +21,7 @@ class Source(object):
         # objects.
         self.ch1 = ch1_mag
         self.ch2 = ch2_mag
+        self.ch1_m_ch2 = self.ch1 - self.ch2
+
         self.near_center = False
         self.RS_member = False
