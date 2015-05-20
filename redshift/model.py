@@ -57,11 +57,10 @@ class RSModel(object):
         :return: Model object.
         """
 
-        self._mag_point = ch2_mag
-        self._color_point = ch1_mag - ch2_mag
+        self.mag_point = ch2_mag
+        self.color_point = ch1_mag - ch2_mag
         self.z = redshift
         self._slope = RSModel.slope(redshift)
-
 
     def rs_color(self, ch2_mag):
         """
@@ -80,11 +79,7 @@ class RSModel(object):
         EzGal.
         """
 
-        return self._color_point + self._slope * (ch2_mag - self._mag_point)
-
-
-
-
+        return self.color_point + self._slope * (ch2_mag - self.mag_point)
 
 
 def model_dict(spacing):
@@ -102,7 +97,7 @@ def model_dict(spacing):
 
     #set the formation redshift and observed redshift
     zf = 3.0
-    zs = np.arange(0.7, 1.800001, spacing)
+    zs = np.arange(0.7, 1.700001, spacing)
 
     # normalize to Coma
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,

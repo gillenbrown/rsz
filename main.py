@@ -29,6 +29,9 @@ def main():
         filepath = params["catalog_directory"] + cat
         cl = cluster.Cluster(filepath)
 
+        # do the fitting procedure
+        cl.fit_z(params)
+
 
 
 

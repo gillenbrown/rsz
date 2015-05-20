@@ -13,4 +13,5 @@ catalog_directory = /Users/gbbtz7/GoogleDrive/Research/Data/Catalogs/Provided/IR
 
 #####   PLOTS    #######
 # Let the user choose which plots to output for each cluster
-# TODO
+# TODO: describe each plot in more detail
+CMD = 1
