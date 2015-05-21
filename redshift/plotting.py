@@ -41,12 +41,15 @@ def cmd(cluster):
     ax.set_ylim(-1, 0.5)
     ax.set_xlabel("ch2")
     ax.set_ylabel("ch1 - ch2")
+    ax.text(0.08, 0.96, cluster.name, transform=ax.transAxes,
+            horizontalalignment="center", verticalalignment="center",
+            bbox=dict(facecolor="w"))
 
     # return both the figure and the axis so that other functions can add
     # more cool stuff to the plot.
     return fig, ax
 
-def add_models(fig, ax):
+def add_all_models(fig, ax):
     """
     Adds the RS models to the given axis, adding a colorbar to code redshift.
 
@@ -73,19 +76,41 @@ def add_models(fig, ax):
     for z in models:
         # use the scalar map to get the color for this redshift.
         color_val = scalar_map.to_rgba(z)
-
-        # make two points in the line for this RS at this redshfit
-        ch2s = [10, 30]
-        colors = [models[z].rs_color(ch2) for ch2 in ch2s]
-        # plot that line
-        ax.plot(ch2s, colors, color=color_val, linewidth=0.5, zorder=0)
-
-        # also plot the points that corresponding to L*
-        ax.scatter(models[z].mag_point, models[z].color_point, c=color_val,
-                   s=30, linewidth=0, zorder=0)
+        # plot the line for this model
+        add_one_model(ax, models[z], color_val)
 
     # add the colorbar
     scalar_map.set_array([]) # Don't know what this does
     cb = fig.colorbar(mappable=scalar_map, ax=ax)
     cb.set_label("Redshift")
     cb.set_ticks(np.arange(0, 3, 0.1))
+
+
+def add_one_model(ax, model, color, label=False):
+    """
+    Adds one model to the axis.
+
+    Ax should be generated with the cmd function.
+
+    :param ax: axis on which to plot the model
+    :param model: model to plot on the axis
+    :param label: bool, whether or not to label the line being plotted with
+                  a box in the right hand corner. If you are only plotting one
+                  line this makes sense, but don't use this if there are
+                  multiple lines.
+    :return: none, but ax will be modified
+    """
+    # make two points in the line for this RS
+    ch2s = [10, 30]
+    colors = [model.rs_color(ch2) for ch2 in ch2s]
+    # plot that line
+    ax.plot(ch2s, colors, color=color, linewidth=0.5, zorder=0)
+
+    # also plot the points that corresponding to L*
+    ax.scatter(model.mag_point, model.color_point, c=color,
+               s=30, linewidth=0, zorder=0)
+
+    if label:
+        ax.text(0.97, 0.96, "z="+ model.z, transform=ax.transAxes,
+                horizontalalignment="right", verticalalignment="center",
+                bbox=dict(facecolor="w"))

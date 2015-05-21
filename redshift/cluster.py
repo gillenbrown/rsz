@@ -1,5 +1,6 @@
 import os
 import math
+import numpy as np
 
 import model
 import source
@@ -10,7 +11,7 @@ class Cluster(object):
     # Keeping the predictions for the red sequence with the cluster object
     # made things a lot easier. And since the predictions are the same for
     # all cluster, this is a class variable rather than an instance variable.
-    predictions_dict = model.model_dict(0.01)
+    models = model.model_dict(0.01)
 
     def __init__(self, filepath):
         self.name = Cluster._name(filepath)
@@ -68,16 +69,32 @@ class Cluster(object):
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_models(fig, ax)
+            plotting.add_all_models(fig, ax)
             figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
         # point.
-        z = self._initial_z()
-        print z
+        self.z = self._initial_z()
 
-        # TODO: Next: plot this intial redshift, and highlight red sequence
-        # members
+        # set cuts that will be used in the successive iterations to refine
+        # the fit of the red sequence
+        bluer_color_cut = [0.25, 0.225, 0.20]
+        redder_color_cut = [0.4, 0.3, 0.2]
+        brighter_mag_cut = 1.4
+        dimmer_mag_cut = 0.6
+
+        # mark RS members based on the initial redshift, with the largest
+        # color cuts
+        self._set_RS_membership(self.z.value, bluer_color_cut[0],
+                                redder_color_cut[0], brighter_mag_cut,
+                                dimmer_mag_cut)
+
+        # If the user wants to see the procedure, plot the initial fit
+        if params["fitting_procedure"] == "1":
+            fig, ax = plotting.cmd(self)
+            plotting.add_one_model(ax, self.models[self.z.value], "k",
+                                   label=True)
+            figures.append(fig)
 
 
 
@@ -158,8 +175,8 @@ class Cluster(object):
                 # get the expected RS color for a galaxy of this magnitude
                 color_point = this_model.rs_color(source.ch2.value)
                 # see if it passes a color and magnitude cut
-                if (mag_point - 1.0 < source.ch2 < mag_point + 1.0) and \
-                   (color_point - 0.2 < source.ch1_m_ch2 < color_point + 0.2):
+                if (mag_point - 1.5 < source.ch2 < mag_point + 0.7) and \
+                   (color_point - 0.3 < source.ch1_m_ch2 < color_point + 0.3):
                     # if it did pass, note that it is nearby
                     nearby += 1
 
@@ -168,7 +185,65 @@ class Cluster(object):
                 max_nearby = nearby
                 best_z = z
 
-        return best_z
+        # Turn this into a data object, with no errors
+        z = data.AsymmetricData(best_z, np.NaN, np.NaN)
+        return z
+
+    def _set_RS_membership(self, redshift, bluer, redder, brighter, dimmer):
+        """Set some sources to be RS members, based on color and mag cuts.
+
+        :param redshift: redshift of the red sequence that these sources
+                         will be identified as belonging to.
+        :param bluer: maximum color difference on the blue side from the
+                      characteristic color of the red sequence at the
+                      magnitude of the galaxy.
+        :param redder: maximum color differenece on the red side from the
+                       characteristic color of the RS
+        :param brighter: maximum magnitude difference (on the bright end)
+                         from the characteristic magnitude of the red
+                         sequence.
+        :param dimmer: maximum magnitude difference (on the faint end)
+                         from the characteristic magnitude of the red
+                         sequence.
+
+        As an example: At some redshift, the red sequence has a characteristic
+        magnitude of 20, and a characteristic color of zero. We pass in
+        bluer=0.1, redder=0.2, brighter=2.0, dimmer=1.0. Any galaxies that
+        have magnitude 18 to 21 pass the magnitude cut. The color cut is
+        trickier, since the RS has some slope. We find the characteristic
+        color of the red sequence at the ch2 magnitude of the galaxy (say
+        0.05 for a particular galaxy). Then if the color is within the
+        bounds set by bluer and redder (in this case -0.05 to 0.25), then it
+        passes the color cut. If a galaxy passes both the magnitude and
+        color cuts, it is marked as a red sequence galaxy.
+
+        Note: This function marks galaxies both inside and outside the
+        location cut as RS members. This is because the loctaion cut may be
+        smaller than the cluster (in fact this is often good to do), and we
+        don't want to mark galaxies as not RS members just because they are
+        outside the (possibly) small location cut.
+
+        :return: None, but galaxies that are RS members are marked as such.
+        """
+
+        # get the model, it's characteristic magnitude, and then turn it
+        # into magnitude limits bsed on the parameters passed in
+        RS_model = self.models[redshift]
+        char_mag = RS_model.mag_point
+        dim_mag = char_mag + dimmer
+        bright_mag = char_mag - brighter
+
+        for source in self.sources_list:
+            #get the color correspoinding to the red sequence at the ch2
+            # magnitude of this particular source
+            char_color = RS_model.rs_color(source.ch2.value)
+            # turn it into color limits based on parameters passed in
+            red_color = char_color + redder
+            blue_color = char_color - bluer
+            # a function in the source class does the actual marking
+            source.RS_membership(blue_color, red_color, bright_mag, dim_mag)
+
+
 
 
 

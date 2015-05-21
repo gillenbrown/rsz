@@ -25,3 +25,22 @@ class Source(object):
 
         self.near_center = False
         self.RS_member = False
+
+
+    def RS_membership(self, blue, red, bright, faint):
+        """Mark sources as red sequence members if they pass the given cuts.
+
+        Sources will be marked as red sequence members if they have a color
+        between blue and red, and a ch2 magnitude between bright and faint.
+
+        :param blue: bluest color a source can be to be a RS member
+        :param red: reddest color a source can be to be a RS member
+        :param bright: brightest ch2 magnitude "" "" "" "" "" "" ""
+        :param faint: dimmest ch2 magnitude "" "" "" "" "" "" ""
+        :return: None, but some sources will be marked as RS members.
+        """
+
+        if blue < self.ch1_m_ch2 < red and bright < self.ch2 < faint:
+            self.RS_member = True
+        else:
+            self.RS_member = False

@@ -25,6 +25,9 @@ def main():
     params = parse_config()
 
     catalogs = os.listdir(params["catalog_directory"])
+    # weed out things that aren't catalogs
+    catalogs = [cat for cat in catalogs if cat.endswith(params["extension"])]
+
     for cat in catalogs:
         filepath = params["catalog_directory"] + cat
         cl = cluster.Cluster(filepath)

@@ -4,6 +4,7 @@
 
 ## Catalog directory: The code will look for catalogs in the directory below. Include the full path.
 catalog_directory = /Users/gbbtz7/GoogleDrive/Research/Data/Catalogs/Provided/IRAC/2015run/
+extension = .cat
 
 ####   MODEL DATA  #### 
 # Let the user choose which models to use in the fitting.
@@ -15,6 +16,7 @@ catalog_directory = /Users/gbbtz7/GoogleDrive/Research/Data/Catalogs/Provided/IR
 # Let the user choose which plots to output for each cluster
 # TODO: describe each plot in more detail
 CMD = 1
+fitting_procedure = 1
 
 
 ########### Location for stuff
