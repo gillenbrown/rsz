@@ -67,7 +67,9 @@ def add_all_models(fig, ax):
     models = model.model_dict(0.05)
 
     # set the colormap, so we can color code lines by redshift
-    spectral = plt.get_cmap("spectral")
+    spectral = plt.get_cmap("jet")
+    # some other decent colormaps: coolwarm, bwr, jet, RdBu_r, RdYlBu_r,
+    # Spectral_r, rainbow
     #normalize the colormap
     c_norm = mplcol.Normalize(vmin=np.float64(min(models)),
                               vmax=np.float64(max(models)))

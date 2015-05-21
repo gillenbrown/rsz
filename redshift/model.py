@@ -27,7 +27,7 @@ class _Slope(object):
 
         # TODO: do some interpolating here to find the slope at any redshift
         def f(z):
-            return -0.05
+            return -0.05 * float(z)
 
         self.slope_function = f
 

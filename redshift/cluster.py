@@ -76,24 +76,62 @@ class Cluster(object):
         # point.
         self.z = self._initial_z()
 
-        # set cuts that will be used in the successive iterations to refine
-        # the fit of the red sequence
-        bluer_color_cut = [0.25, 0.225, 0.20]
-        redder_color_cut = [0.4, 0.3, 0.2]
-        brighter_mag_cut = 1.4
-        dimmer_mag_cut = 0.6
-
-        # mark RS members based on the initial redshift, with the largest
-        # color cuts
-        self._set_RS_membership(self.z.value, bluer_color_cut[0],
-                                redder_color_cut[0], brighter_mag_cut,
-                                dimmer_mag_cut)
-
-        # If the user wants to see the procedure, plot the initial fit
+        # If the user wants to see this initial, fit, plot it.
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
             plotting.add_one_model(ax, self.models[self.z.value], "k",
                                    label=True)
+            figures.append(fig)
+
+        # set cuts that will be used in the successive iterations to refine
+        # the fit of the red sequence
+        bluer_color_cut = [0.25, 0.225, 0.20]
+        redder_color_cut = [0.4, 0.3, 0.2]
+        # the bluer color cut is smaller than the red color cut to try to
+        # throw away foregrounds. If too many foregrounds are included,
+        # they drag the redshift down, since those foregrounds typically
+        # have lower error, which biases the fit. That isn't a problem with
+        # objects redder than the RS.
+        brighter_mag_cut = 1.4
+        dimmer_mag_cut = 0.6
+
+        # do three iterations of fitting, each with a progressively smaller
+        # color cut, which is designed to hone in on the red sequence.
+        for i in range(0, 3):
+            # set red sequence members based on the cuts
+            self._set_RS_membership(self.z.value, bluer_color_cut[i],
+                                    redder_color_cut[i], brighter_mag_cut,
+                                    dimmer_mag_cut)
+
+            self.z = self._chi_square_w_error()
+
+            # if the user wants, plot the procedure
+            if params["fitting_procedure"] == "1":
+                fig, ax = plotting.cmd(self)
+                plotting.add_one_model(ax, self.models[self.z.value], "k",
+                                       label=True)
+                figures.append(fig)
+
+        # we now have a final answer for the redshift of the cluster.
+        # if the user wants, plot it up
+        if params["final_CMD"] == "1":
+            fig, ax = plotting.cmd(self)
+            plotting.add_one_model(ax, self.models[self.z.value], "k",
+                                   label=False)
+            # I want to plot both the low and high models, so get those zs
+            high_z = str(float(self.z.value) + float(self.z.upper_error))
+            low_z = str(float(self.z.value) - float(self.z.lower_error))
+            # yeah, that converting from float to string is weird. I only do
+            #  it since redshifts are the keys for various dictionaries.
+            # Floats are subject to floating point errors, so I don't want
+            # them as keys to these dictionaries. Strings are better in that
+            #  regard.
+
+            plotting.add_one_model(ax, self.models[high_z], "0.6",
+                                   label=False)
+            plotting.add_one_model(ax, self.models[low_z], "0.6",
+                                   label=False)
+
             figures.append(fig)
 
 
@@ -102,7 +140,7 @@ class Cluster(object):
 
 
         # now that we are all done, save the figures.
-        Cluster.save_as_one_pdf(figures, params["plot_directory"] +
+        save_as_one_pdf(figures, params["plot_directory"] +
                                 self.name + ".pdf")
 
 
@@ -243,26 +281,105 @@ class Cluster(object):
             # a function in the source class does the actual marking
             source.RS_membership(blue_color, red_color, bright_mag, dim_mag)
 
+    def _chi_square_w_error(self):
+        """Does chi-squared fitting, and returns the best fit value and the
+        1 sigma error.
 
+        The best fit value is simply the value that minimizes the reduced
+        chi squared value. The upper and lower errors on this are the value
+        at which the chi squared value is 1 greater than the best fit.
 
-
-
-    @staticmethod
-    def save_as_one_pdf(figs, filename):
+        :returns: An AsymmetricData object, where value is the best fit
+        values, and upper and lower values are indicated.
         """
-        Save the figures into one long PDF file
 
-        :param figs: list of figures to be saved as PDFs
-        :param filename: place where the PDFs will be saved
-        :return: none
-        """
-        from matplotlib.backends.backend_pdf import PdfPages
-        import matplotlib.pyplot as plt
+        # we only want to do the fitting on those near the center, and those
+        #  that are in our tentative RS.
+        to_fit = [source for source in self.sources_list if source.RS_member
+                  and source.near_center]
 
-        # Save the pdfs as one file
-        pp = PdfPages(filename)
-        for fig in figs:
-            pp.savefig(fig)
-        pp.close()
-        for fig in figs:
-            plt.close(fig)
+        # initialize lists for the chi squared distribution and the redshifts
+        chi_sq_values = []
+        redshifts = []
+
+        # test each model
+        for z in sorted(self.models):
+            chi_sq = 0  # reset the chi squared value for this model
+            this_model = self.models[z]
+            for source in to_fit:
+                model_color = this_model.rs_color(source.ch2.value)
+                color = source.ch1_m_ch2.value
+                error = source.ch1_m_ch2.error
+                chi_sq += ((model_color - color)/error)**2
+
+            #reduce the chi square values
+            chi_sq /= len(to_fit)
+            # put these values into the lists, so we can keep track of them
+            chi_sq_values.append(chi_sq)
+            redshifts.append(z)
+
+        best_chi = min(chi_sq_values)
+        best_chi_index = chi_sq_values.index(best_chi)
+
+        high_idx = best_chi_index
+        # find the place where the chi value is one greater than the best
+        while high_idx < len(chi_sq_values) - 1 and \
+              chi_sq_values[high_idx] - best_chi < 1.0:
+            # Note: len(chi_sq_values) - 1 needs that -1 so that we don't
+            # end up with an high_idx that is past the end of chi_sq_values
+            high_idx += 1
+        # high_idx will now point to the first value where the chi squared
+        # value is one greater than the best fit value.
+
+        # TODO: should I do some interpolation here to find the place
+        # where it is exactly one, or just go with this? I'll go with it
+        #  for now, but I need to decide.
+
+        # do the same thing for the low error
+        low_idx = best_chi_index
+        while low_idx > 0 and chi_sq_values[low_idx] - best_chi < 1.0:
+            low_idx -= 1
+
+        # now get the redshifts corresponding to the best fit, the low
+        # error, and the high error
+        # This works because the indexing will be the same for redshifts as
+        # it was for chi_sq_values
+        best_z = redshifts[best_chi_index]
+        high_z = redshifts[high_idx]
+        low_z = redshifts[low_idx]
+
+        # turn these limits into errors, then into an AsymmetricData object
+        high_error = str(float(high_z) - float(best_z))
+        low_error = str(float(best_z) - float(low_z))
+        return data.AsymmetricData(best_z, high_error, low_error)
+        # TODO: that was a long function. Break it up somehow?
+
+
+
+
+
+
+
+
+
+
+def save_as_one_pdf(figs, filename):
+    """
+    Save the figures into one long PDF file
+
+    :param figs: list of figures to be saved as PDFs
+    :param filename: place where the PDFs will be saved
+    :return: none
+    """
+    from matplotlib.backends.backend_pdf import PdfPages
+    import matplotlib.pyplot as plt
+    # TODO: move these imports to the top of whatever file this function
+    # ends up in
+
+    # Save the pdfs as one file
+    pp = PdfPages(filename)
+    for fig in figs:
+        pp.savefig(fig)
+    pp.close()
+    for fig in figs:
+        plt.close(fig)

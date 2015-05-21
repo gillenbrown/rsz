@@ -17,6 +17,7 @@ extension = .cat
 # TODO: describe each plot in more detail
 CMD = 1
 fitting_procedure = 1
+final_CMD = 1
 
 
 ########### Location for stuff
