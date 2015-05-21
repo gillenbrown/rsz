@@ -46,6 +46,26 @@ class RSModel(object):
     # get slopes for all redshifts
     slope = _Slope()
 
+    @staticmethod
+    def correction(redshift):
+        """
+        Does the redshift correction.
+
+        After comparing clusters with known
+        redshifts to those produced by this program, this correction was
+        devised to make this program return results more closely matching
+        the actual redshift. It's just an impirical correction to make the
+        redshifts better.
+
+        :param z: uncorrected redshift
+        :return: corrected redshift
+        """
+        # TODO: actually make this correction.
+        # TODO: make an iPython notebook documenting the way I found this
+        # correction, once I actually do that.
+        return redshift
+
+
     def __init__(self, redshift, ch1_mag, ch2_mag):
         """
         Initializes the useful parameters that will be used to calculate
@@ -59,7 +79,7 @@ class RSModel(object):
 
         self.mag_point = ch2_mag
         self.color_point = ch1_mag - ch2_mag
-        self.z = redshift
+        self.z = RSModel.correction(redshift)
         self._slope = RSModel.slope(redshift)
 
     def rs_color(self, ch2_mag):
@@ -111,11 +131,12 @@ def model_dict(spacing):
     rs_models = dict()
 
     # turn redshifts into strings, to avoid floating point errors
-    zs = [str(round(z, 2)) for z in zs]
+    zs = [str(round(z, 5)) for z in zs]
 
     for z, m in zip(zs, mags):
         ch1, ch2 = m  # split the magnitudes into ch1 and ch2
-        rs_models[z] = RSModel(z, ch1, ch2)
+        this_model = RSModel(z, ch1, ch2)
+        rs_models[this_model.z] = this_model
 
     return rs_models
 
