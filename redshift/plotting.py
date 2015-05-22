@@ -1,10 +1,14 @@
 import model
 import data
 
+import prettyplot
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
 import numpy as np
+
+
 
 def cmd(cluster):
     """
@@ -32,7 +36,7 @@ def cmd(cluster):
         if source.RS_member:
             point_color = "r"
         else:
-            point_color = "k"
+            point_color = prettyplot.almost_black
 
         ax.errorbar(x=mag, y=color.value, yerr=color.error, c=point_color,
                     fmt=".", elinewidth=0.35, capsize=0, markersize=5)
@@ -44,7 +48,7 @@ def cmd(cluster):
     ax.set_ylabel("ch1 - ch2")
     ax.text(0.08, 0.96, cluster.name, transform=ax.transAxes,
             horizontalalignment="center", verticalalignment="center",
-            bbox=dict(facecolor="w"))
+            bbox=dict(facecolor="w", linewidth=0.5))
 
     # return both the figure and the axis so that other functions can add
     # more cool stuff to the plot.
@@ -68,7 +72,7 @@ def add_all_models(fig, ax):
     models = model.model_dict(0.05)
 
     # set the colormap, so we can color code lines by redshift
-    spectral = plt.get_cmap("jet")
+    spectral = plt.get_cmap("RdYlBu_r")
     # some other decent colormaps: coolwarm, bwr, jet, RdBu_r, RdYlBu_r,
     # Spectral_r, rainbow
     #normalize the colormap
@@ -125,8 +129,8 @@ def add_redshift(ax, redshift):
         # we need to enclose the value in braces so LaTeX can recognize them
         #  properly
         value = "{" + str(redshift.value) + "}"
-        upper = "{" + str(redshift.upper_error) + "}"
-        lower = "{" + str(redshift.lower_error) + "}"
+        upper = "{+" + str(redshift.upper_error) + "}"
+        lower = "{\,-" + str(redshift.lower_error) + "}"
         text = r"z=$\mathregular{{{value}^{upper}_{lower}}}$".format(
             value=value, upper=upper, lower=lower)
     else:
@@ -135,4 +139,51 @@ def add_redshift(ax, redshift):
 
     ax.text(0.97, 0.96, text, transform=ax.transAxes,
             horizontalalignment="right", verticalalignment="center",
-            bbox=dict(facecolor="w"))
+            bbox=dict(facecolor="w", linewidth=0.5))
+
+
+def location(cluster):
+    """Plot the location of all the sources in the cluster, with RS members
+    highlighted.
+
+    All sources are plotted. Ones that passed the location cut will be
+    darker than those that didn't. Red sequence galaxies will be red
+    regardless of whether or not they passed the location cut.
+
+    :param cluster: cluster to plot the data for
+    :return: fig, ax of the plot
+    """
+
+    fig, ax = plt.subplots(figsize=(9,8), tight_layout=True)
+    rs_member_ra, rs_member_dec = [], []
+    center_ra, center_dec = [], []
+    rest_ra, rest_dec = [], []
+    for source in cluster.sources_list:
+        if source.RS_member:
+            rs_member_ra.append(source.ra)
+            rs_member_dec.append(source.dec)
+        elif source.near_center:
+            center_ra.append(source.ra)
+            center_dec.append(source.dec)
+        else:
+            rest_ra.append(source.ra)
+            rest_dec.append(source.dec)
+    ax.scatter(rest_ra, rest_dec, c="0.7", linewidth=0)
+    ax.scatter(center_ra, center_dec, c=prettyplot.almost_black, linewidth=0,
+               label="Location Cut")
+    ax.scatter(rs_member_ra, rs_member_dec, c="r", linewidth=0,
+               label="Red Sequence")
+
+    # add labels and clean up the plot
+    ax.set_xlabel("ra")
+    ax.set_ylabel("dec")
+    legend = ax.legend(loc=3)
+    legend.get_frame().set_linewidth(0.5)
+    # label the cluster name
+    ax.text(0.10, 0.96, cluster.name, transform=ax.transAxes,
+            horizontalalignment="center", verticalalignment="center",
+            bbox=dict(facecolor="w", linewidth=0.5))
+    ax.invert_xaxis()  # ra is backwards
+    ax.set_aspect("equal", adjustable="box")  # we want ra and dec to be
+    # scaled the same
+    return fig, ax

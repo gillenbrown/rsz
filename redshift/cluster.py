@@ -2,10 +2,14 @@ import os
 import math
 import numpy as np
 
+import prettyplot
+
 import model
 import source
 import data
 import plotting
+
+
 
 class Cluster(object):
     # Keeping the predictions for the red sequence with the cluster object
@@ -79,7 +83,8 @@ class Cluster(object):
         # If the user wants to see this initial, fit, plot it.
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
+            plotting.add_one_model(ax, self.models[self.z.value],
+                                   prettyplot.almost_black)
             plotting.add_redshift(ax, self.z.value)
             figures.append(fig)
 
@@ -108,7 +113,8 @@ class Cluster(object):
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
                 fig, ax = plotting.cmd(self)
-                plotting.add_one_model(ax, self.models[self.z.value], "k")
+                plotting.add_one_model(ax, self.models[self.z.value],
+                                       prettyplot.almost_black)
                 plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
@@ -116,7 +122,8 @@ class Cluster(object):
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
+            plotting.add_one_model(ax, self.models[self.z.value],
+                                   prettyplot.almost_black)
             # I want to plot both the low and high models, so get those zs
             high_z = self.z.value + self.z.upper_error
             low_z = self.z.value - self.z.lower_error
@@ -128,7 +135,11 @@ class Cluster(object):
             figures.append(fig)
 
 
-
+        # If the user wants, plot the location of the cluster and RS members.
+        if params["location"] == "1":
+            fig, ax = plotting.location(self)
+            plotting.add_redshift(ax, self.z)
+            figures.append(fig)
 
 
 

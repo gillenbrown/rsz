@@ -18,6 +18,7 @@ extension = .cat
 CMD = 1
 fitting_procedure = 1
 final_CMD = 1
+location = 1
 
 
 ########### Location for stuff
