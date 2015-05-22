@@ -118,13 +118,8 @@ class Cluster(object):
             fig, ax = plotting.cmd(self)
             plotting.add_one_model(ax, self.models[self.z.value], "k")
             # I want to plot both the low and high models, so get those zs
-            high_z = str(float(self.z.value) + float(self.z.upper_error))
-            low_z = str(float(self.z.value) - float(self.z.lower_error))
-            # yeah, that converting from float to string is weird. I only do
-            #  it since redshifts are the keys for various dictionaries.
-            # Floats are subject to floating point errors, so I don't want
-            # them as keys to these dictionaries. Strings are better in that
-            #  regard.
+            high_z = self.z.value + self.z.upper_error
+            low_z = self.z.value - self.z.lower_error
 
             plotting.add_one_model(ax, self.models[high_z], "0.6")
             plotting.add_one_model(ax, self.models[low_z], "0.6")
@@ -347,8 +342,8 @@ class Cluster(object):
         low_z = redshifts[low_idx]
 
         # turn these limits into errors, then into an AsymmetricData object
-        high_error = str(float(high_z) - float(best_z))
-        low_error = str(float(best_z) - float(low_z))
+        high_error = high_z - best_z
+        low_error = best_z - low_z
         return data.AsymmetricData(best_z, high_error, low_error)
         # TODO: that was a long function. Break it up somehow?
 

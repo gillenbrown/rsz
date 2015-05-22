@@ -122,9 +122,11 @@ def add_redshift(ax, redshift):
     right corner of ax.
     """
     if type(redshift) is data.AsymmetricData:
-        value = "{:.2f}".format(float(redshift.value))
-        upper = "{{+{:.2f}}}".format(float(redshift.upper_error))
-        lower = "{{-{:.2f}}}".format(float(redshift.lower_error))
+        # we need to enclose the value in braces so LaTeX can recognize them
+        #  properly
+        value = "{" + str(redshift.value) + "}"
+        upper = "{" + str(redshift.upper_error) + "}"
+        lower = "{" + str(redshift.lower_error) + "}"
         text = r"z=$\mathregular{{{value}^{upper}_{lower}}}$".format(
             value=value, upper=upper, lower=lower)
     else:

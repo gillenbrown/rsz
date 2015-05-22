@@ -1,6 +1,7 @@
 import ezgal
 import os
 import numpy as np
+import decimal
 
 class _Slope(object):
     """
@@ -130,10 +131,21 @@ def model_dict(spacing):
     # initialize an empty dictionary that will be filled with RSModel objects
     rs_models = dict()
 
-    # turn redshifts into strings, to avoid floating point errors
-    zs = [str(round(z, 5)) for z in zs]
+    # turn redshifts into decimal objects, to avoid floating point errors.
+    # turn to strings first, then add zeros when necessary, then turn to
+    # decimal objects. We add zeroes to get 1.10, rather than 1.1, for example.
+    # Decimal objects are used because they are not subject to floating
+    # point errors, and still work in simple algebra. Having floating point
+    # errors in dictionary keys is a bad thing.
+    zs = [str(round(z, 2)) for z in zs]
+    z_2_digits = []
+    for z in zs:
+        if z[-2] == ".":
+            z += "0"
+        z_2_digits.append(z)
+    decimal_zs = [decimal.Decimal(z) for z in z_2_digits]
 
-    for z, m in zip(zs, mags):
+    for z, m in zip(decimal_zs, mags):
         ch1, ch2 = m  # split the magnitudes into ch1 and ch2
         this_model = RSModel(z, ch1, ch2)
         rs_models[this_model.z] = this_model
