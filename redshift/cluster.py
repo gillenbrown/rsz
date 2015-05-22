@@ -79,8 +79,8 @@ class Cluster(object):
         # If the user wants to see this initial, fit, plot it.
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_one_model(ax, self.models[self.z.value], "k",
-                                   label=True)
+            plotting.add_one_model(ax, self.models[self.z.value], "k")
+            plotting.add_redshift(ax, self.z.value)
             figures.append(fig)
 
         # set cuts that will be used in the successive iterations to refine
@@ -108,16 +108,15 @@ class Cluster(object):
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
                 fig, ax = plotting.cmd(self)
-                plotting.add_one_model(ax, self.models[self.z.value], "k",
-                                       label=True)
+                plotting.add_one_model(ax, self.models[self.z.value], "k")
+                plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_one_model(ax, self.models[self.z.value], "k",
-                                   label=False)
+            plotting.add_one_model(ax, self.models[self.z.value], "k")
             # I want to plot both the low and high models, so get those zs
             high_z = str(float(self.z.value) + float(self.z.upper_error))
             low_z = str(float(self.z.value) - float(self.z.lower_error))
@@ -127,10 +126,9 @@ class Cluster(object):
             # them as keys to these dictionaries. Strings are better in that
             #  regard.
 
-            plotting.add_one_model(ax, self.models[high_z], "0.6",
-                                   label=False)
-            plotting.add_one_model(ax, self.models[low_z], "0.6",
-                                   label=False)
+            plotting.add_one_model(ax, self.models[high_z], "0.6")
+            plotting.add_one_model(ax, self.models[low_z], "0.6")
+            plotting.add_redshift(ax, self.z)
 
             figures.append(fig)
 

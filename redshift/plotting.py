@@ -1,4 +1,5 @@
 import model
+import data
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
@@ -88,7 +89,7 @@ def add_all_models(fig, ax):
     cb.set_ticks(np.arange(0, 3, 0.1))
 
 
-def add_one_model(ax, model, color, label=False):
+def add_one_model(ax, model, color):
     """
     Adds one model to the axis.
 
@@ -96,10 +97,6 @@ def add_one_model(ax, model, color, label=False):
 
     :param ax: axis on which to plot the model
     :param model: model to plot on the axis
-    :param label: bool, whether or not to label the line being plotted with
-                  a box in the right hand corner. If you are only plotting one
-                  line this makes sense, but don't use this if there are
-                  multiple lines.
     :return: none, but ax will be modified
     """
     # make two points in the line for this RS
@@ -112,7 +109,28 @@ def add_one_model(ax, model, color, label=False):
     ax.scatter(model.mag_point, model.color_point, c=color,
                s=30, linewidth=0, zorder=0)
 
-    if label:
-        ax.text(0.97, 0.96, "z="+ model.z, transform=ax.transAxes,
-                horizontalalignment="right", verticalalignment="center",
-                bbox=dict(facecolor="w"))
+
+def add_redshift(ax, redshift):
+    """Label the plot with a redshift in the upper right corner.
+
+    Can be either just a value or one with errors, too.
+
+    :param ax: axis to put the redshift of.
+    :param redshift: redshift to be put in the corner. Can be either a
+                    single float of a data object.
+    :return: None, but the redshift will be added in a box in the upper
+    right corner of ax.
+    """
+    if type(redshift) is data.AsymmetricData:
+        value = "{:.2f}".format(float(redshift.value))
+        upper = "{{+{:.2f}}}".format(float(redshift.upper_error))
+        lower = "{{-{:.2f}}}".format(float(redshift.lower_error))
+        text = r"z=$\mathregular{{{value}^{upper}_{lower}}}$".format(
+            value=value, upper=upper, lower=lower)
+    else:
+        text = "z=" + str(redshift)
+
+
+    ax.text(0.97, 0.96, text, transform=ax.transAxes,
+            horizontalalignment="right", verticalalignment="center",
+            bbox=dict(facecolor="w"))
