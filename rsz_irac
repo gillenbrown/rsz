@@ -94,6 +94,14 @@ def add_to_catalog(output_file, cluster):
 
 
 def main():
+    header =  "\n+" + 25*"-" + 6*" " + "rsz_irac" + 6*" " + 25*"-" + "+\n" +\
+              "|" + 70*" " + "|\n" + \
+              "|" + 5*" " + "Remember the clusters must be above z=0.7 for " \
+                            "this to work!" + 6*" " + "|\n" +\
+              "|" + 70*" " + "|\n" + \
+              "+" + 70*"-" + "+\n"
+    print header
+    print "Reading parameter file..."
     # parse the config file
     params = parse_config()
 
@@ -104,7 +112,12 @@ def main():
     # start the output file
     output_file = start_output()
 
-    for cat in catalogs:
+    print "Starting redshift fitting..."
+    # Use sys.stdout.write instead of print so I can get an updating progress.
+    sys.stdout.write("0/{} clusters finished.".format(len(catalogs)))
+    sys.stdout.flush()
+
+    for i, cat in enumerate(catalogs, start=1):
         filepath = params["catalog_directory"] + cat
         cl = cluster.Cluster(filepath)
 
@@ -114,21 +127,27 @@ def main():
         # make the output catalog
         add_to_catalog(output_file, cl)
 
-    output_file.close()
-    pass
+        # update progress
+        sys.stdout.write("\r")  # go back to the beginning of the line
+        sys.stdout.write("{}/{} clusters finished.".format(i, len(catalogs)))
+        sys.stdout.flush()
 
+
+
+    output_file.close()
+
+    print "\n"
 
 
 
 if __name__ == "__main__":
     main()
 
-# TODO: find a good name for the code.
 # TODO: actual slopes of the red sequence
 # TODO: What is the format of the catalogs I will get?
 # TODO: correction
 # TODO: print nice header when the code runs, and some indication of how the
 #  code is running.
-# TODO: make a readme that explains everything about the program.
+# TODO: make a readme that explains the science behind the code
 # TODO: document results file
 # TODO: make a .txt file documenting how to run the code.
