@@ -6,20 +6,30 @@ import sys
 from redshift import cluster
 
 def abs_path(path):
+    """Makes and given path into an absolute path.
+
+    Works for paths that are already aboluste, paths which start with ~/ and
+    . and .. as well as paths that are just a file or folder. All relative
+    paths are assumed to be relative to the current working directory.
+
+    :param path: path to be made absolute
+    :return: string with the absolute path
+    """
     if path.startswith("/"):
         # is an absolute path, so we don't need to do anythin
         return path
     elif path.startswith("~/"):
         # is relative to home, which is easy.
         return os.path.expanduser(path)
-    elif path.startswith(".") and not path.startswith(".."):
-        return os.getcwd() + path[1:]  # ignore the dot
+    elif path.startswith(".."):
+        above = (os.sep).join(os.getcwd().split(os.sep)[0:-1])
+        # The 0:-1 is to get rid of the last path (our current directory),
+        # which will give us the directory above
+        return above + path[2:]  # get rid of ..
+    elif path.startswith("."):
+        return os.getcwd() + path[1:]  # get rid of .
     elif path[0].isalnum():
         return os.getcwd() + os.sep + path
-    elif path.startswith(".."):
-        current = os.getcwd()
-        above = os.sep.join(current.split(os.sep)[0:-1])
-        return above + path[2:]
     else:
         raise ValueError("Path format not recognized.")
 
@@ -30,11 +40,10 @@ def parse_config():
     :return: dictionary, with keys of parameter names, and values of the
     desired values for those parameters.
     """
-    global params  # params needs to be available elsewhere
-    params = dict()
 
-    # the user can pass in a parameter, which will be the config file
-    # location. Open that if available, and the default if not.
+    # the user can pass in a parameter when calling the program from the
+    # command line, which will be the config file location. Open that if
+    # available, and the default if not.
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
         try:
@@ -45,7 +54,9 @@ def parse_config():
     else:
         config_file = open("config.txt")
 
-
+    # parse the file into a parameters dictionary
+    global params  # params needs to be available elsewhere
+    params = dict()
     for line in config_file:
         if not line.startswith("#") and not line.isspace():
             params[line.split()[0]] = line.split()[2]
