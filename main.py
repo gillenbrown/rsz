@@ -19,6 +19,27 @@ def parse_config():
     config_file.close()
     return params
 
+def start_output():
+    """Start the output file, and put the header in the file.
+
+    :return: open file object pointing to the output file.
+    """
+    output_file = open(params["results_file"], "w")
+    header = '# {:15s}{:6s}{:6s}{:6s}'.format("name", "z", "ezu", "ezd")
+    output_file.write(header)
+    return output_file
+
+def add_to_catalog(output_file, cluster):
+    """
+
+    :param cluster:
+    :return:
+    """
+    line = '\n{:17s}{:<6f}{:<6f}{:<6f}'.format(cluster.name, cluster.z.value,
+                                          cluster.z.upper_error,
+                                          cluster.z.lower_error)
+    output_file.write(line)
+
 
 def main():
     # parse the config file
@@ -28,12 +49,20 @@ def main():
     # weed out things that aren't catalogs
     catalogs = [cat for cat in catalogs if cat.endswith(params["extension"])]
 
+    # start the output file
+    output_file = start_output()
+
     for cat in catalogs:
         filepath = params["catalog_directory"] + cat
         cl = cluster.Cluster(filepath)
 
         # do the fitting procedure
         cl.fit_z(params)
+
+        # make the output catalog
+        add_to_catalog(output_file, cl)
+
+    output_file.close()
 
 
 
