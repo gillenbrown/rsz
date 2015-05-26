@@ -3,7 +3,7 @@
 import os
 import sys
 
-from redshift import cluster
+from rsz_irac_code import cluster
 
 def abs_path(path):
     """Makes and given path into an absolute path.
@@ -123,6 +123,7 @@ def main():
 if __name__ == "__main__":
     main()
 
+# TODO: find a good name for the code.
 # TODO: actual slopes of the red sequence
 # TODO: What is the format of the catalogs I will get?
 # TODO: correction
@@ -130,4 +131,4 @@ if __name__ == "__main__":
 #  code is running.
 # TODO: make a readme that explains everything about the program.
 # TODO: document results file
-
+# TODO: make a .txt file documenting how to run the code.

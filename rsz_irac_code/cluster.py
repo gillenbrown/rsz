@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 import prettyplot
+# TODO: get rid of this import, and do everything manually
 
 import model
 import source
