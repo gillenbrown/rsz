@@ -1,3 +1,6 @@
 # Pycharm stuff
 .idea/
 thoughts.txt
+
+# ignore my example directory
+fake_example/
