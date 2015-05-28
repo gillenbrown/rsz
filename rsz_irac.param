@@ -1,0 +1,53 @@
+#  rsz_irac parameter file  
+
+# ------- THE CLUSTERS THIS IS USED ON MUST BE AT z > 0.7!  -------------------
+# IF THE CLUSTER IS AT LOWER REDSHFIT THAN THIS IT WILL RETURN WRONG ANSWERS
+# -----------------------------------------------------------------------------
+
+# -----------  Directories ----------------------------------------------------
+#
+# Note: For all directories below: If relative paths are used, they need to be 
+#   relative to the directory the program is called from.
+#
+# - Catalog directory: The code will look for catalogs in the directory below. 
+# - extension: The extension the catalogs have. The code will only open files
+#     with this extension.
+# - plot_directory: The directory the plots will be saved in. There will be one
+#     file for each catalog, which will have multiple pdfs, one for each plot
+#     as specified in the plots section.
+# - results_file: Location and name of the file where the results will be 
+#     saved. It will be a text file giving the redshift and error for each 
+#     catalog.
+#
+# -----------------------------------------------------------------------------
+
+catalog_directory = fake_example/catalogs/
+extension = .cat
+plot_directory = fake_example/plots/
+results_file = fake_example/results.txt
+
+# -----------    Plots   ------------------------------------------------------
+#
+# For each plot below, use 1 if you want the plot, 0 if you don't.
+# - CMD: Color magnitude diagram of the cluster, overlaid with red sequence
+#     models of various redshift.
+# - fitting_prodecure: Plots 4 different iterations of the fitting procedure, 
+#     showing where the current best fit red sequence is. In each plot, the red
+#     colored galaxies are the ones used to make the fit shown.
+# - final_CMD: Shows the final best fit red sequence, as well as the red
+#     sequences corresponding to the upper and lower error. The red galaxies 
+#     here are ones identified as red sequence members. If there is one 
+#     plot to output, it's this one. 
+# - location: plots the ra and dec of each source. This plot shows the cut
+#     used to select galaxies near the center. It also highlights galaxies
+#     selected as red sequence members. This plot can be used to tell 
+#     whether or not to believe the results. If the red sequence galaxies are
+#     not clustered near the center, then something probably went wrong, and 
+#     the results should not be believed.
+#
+# -----------------------------------------------------------------------------
+
+CMD = 1
+fitting_procedure = 1
+final_CMD = 1
+location = 1

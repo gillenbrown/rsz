@@ -49,10 +49,10 @@ def parse_config():
         try:
             config_file = open(config_path)
         except IOError:
-            print config_path + " was not found. Opening default config file."
-            config_file = open("config.txt")
+            print config_path + " was not found. Opening default .param file."
+            config_file = open("rsz_irac.param")
     else:
-        config_file = open("config.txt")
+        config_file = open("rsz_irac.param")
 
     # parse the file into a parameters dictionary
     global params  # params needs to be available elsewhere
@@ -77,8 +77,18 @@ def start_output():
     :return: open file object pointing to the output file.
     """
     output_file = open(params["results_file"], "w")
-    header = '# {:15s}{:6s}{:6s}{:6s}'.format("name", "z", "ezu", "ezd")
+    header = "# " + 20*"-" + 3*" " + "rsz_irac results" + 3*" " + 20*"-" + \
+             "\n" + \
+             "#\n" + \
+             "# - name: name of the cluster\n" + \
+             "# - z: best fit redshift of the cluster\n" + \
+             "# - ez+: 1 sigma error on the redshift above the best fit\n" + \
+             "# - ez-: 1 sigma error on the redshift below the best fit\n" + \
+             "#\n" + \
+             "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
+    labels = '# {:15s}{:6s}{:6s}{:6s}'.format("name", "z", "ez+", "ez-")
+    output_file.write(labels)
     return output_file
 
 def add_to_catalog(output_file, cluster):
@@ -146,8 +156,6 @@ if __name__ == "__main__":
 # TODO: actual slopes of the red sequence
 # TODO: What is the format of the catalogs I will get?
 # TODO: correction
-# TODO: print nice header when the code runs, and some indication of how the
-#  code is running.
-# TODO: make a readme that explains the science behind the code
-# TODO: document results file
+# TODO: make a readme that explains the science and workings behind the code
 # TODO: make a .txt file documenting how to run the code.
+# TODO: add liscense?
