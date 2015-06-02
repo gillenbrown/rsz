@@ -24,7 +24,7 @@ def cmd(cluster):
             source.near_center and (source.ch1 - source.ch2).error < 5.0)]
 
     # set up the plot
-    fig, ax = plt.subplots(figsize=(9,6), tight_layout=True)
+    fig, ax = plt.subplots(figsize=(9,6))
 
     # plot points one by one, so I don't have to make long lists for each
     # thing I want to plot. This is simpler
@@ -44,17 +44,50 @@ def cmd(cluster):
     # label and clean up the axes
     ax.set_xlim(18, 23)
     ax.set_ylim(-1, 0.5)
-    ax.set_xlabel("ch2")
-    ax.set_ylabel("ch1 - ch2")
-    ax.text(0.08, 0.96, cluster.name, transform=ax.transAxes,
-            horizontalalignment="center", verticalalignment="center",
-            bbox=dict(facecolor="w", linewidth=0.5))
+    ax.set_xlabel("ch2  [AB]")
+    ax.set_ylabel("ch1 - ch2  [AB]")
+    ax.text(0.02, 0.96, cluster.name, transform=ax.transAxes,
+            horizontalalignment="left", verticalalignment="center",
+            bbox=dict(facecolor="w", linewidth=0.0))
 
     # return both the figure and the axis so that other functions can add
     # more cool stuff to the plot.
     return fig, ax
 
-def add_all_models(fig, ax):
+
+
+
+def add_vega_labels(ax):
+    """
+
+    :param ax:
+    :return:
+    """
+     # move ticks left and bottom, since we want Vega ticks on right
+    ax.xaxis.tick_bottom()
+    ax.yaxis.tick_left()
+
+    # put Vega mags/colors on the top and right
+    # ch1: Vega - AB = -2.787
+    ab_v_1 = -2.787
+    # ch2: Vega - AB = -3.260
+    ab_v_2 = -3.260
+    # to do this, we need to make a second axis
+    vega_color_ax = ax.twinx()
+    vega_mag_ax = ax.twiny()
+    vega_mag_ax.set_xlim(18 + ab_v_2, 23 + ab_v_2)
+    vega_color_ax.set_ylim(-1 + (ab_v_1 - ab_v_2), 0.5 + (ab_v_1 - ab_v_2))
+    vega_mag_ax.set_xlabel("ch2  [Vega]")
+    vega_mag_ax.xaxis.set_label_position("top")
+    vega_mag_ax.xaxis.tick_top()
+    vega_color_ax.set_ylabel("ch1 - ch2  [Vega]")
+    vega_color_ax.yaxis.set_label_position("right")
+    vega_color_ax.yaxis.tick_right()
+
+    return vega_color_ax, vega_mag_ax
+
+
+def add_all_models(fig, ax, steal_axs):
     """
     Adds the RS models to the given axis, adding a colorbar to code redshift.
 
@@ -88,7 +121,8 @@ def add_all_models(fig, ax):
 
     # add the colorbar
     scalar_map.set_array([]) # Don't know what this does
-    cb = fig.colorbar(mappable=scalar_map, ax=ax)
+    cb = fig.colorbar(mappable=scalar_map, ax=steal_axs, pad=0.15,
+                      fraction=0.05, anchor=(1.0, 1.0))
     cb.set_label("Redshift")
     cb.set_ticks(np.arange(0, 3, 0.1))
 
@@ -139,7 +173,7 @@ def add_redshift(ax, redshift):
 
     ax.text(0.97, 0.96, text, transform=ax.transAxes,
             horizontalalignment="right", verticalalignment="center",
-            bbox=dict(facecolor="w", linewidth=0.5))
+            bbox=dict(facecolor="w", linewidth=0.0))
 
 
 def location(cluster):
@@ -180,9 +214,9 @@ def location(cluster):
     legend = ax.legend(loc=3)
     legend.get_frame().set_linewidth(0.5)
     # label the cluster name
-    ax.text(0.10, 0.96, cluster.name, transform=ax.transAxes,
-            horizontalalignment="center", verticalalignment="center",
-            bbox=dict(facecolor="w", linewidth=0.5))
+    ax.text(0.02, 0.96, cluster.name, transform=ax.transAxes,
+            horizontalalignment="left", verticalalignment="center",
+            bbox=dict(facecolor="w", linewidth=0.0))
     ax.invert_xaxis()  # ra is backwards
     ax.set_aspect("equal", adjustable="box")  # we want ra and dec to be
     # scaled the same

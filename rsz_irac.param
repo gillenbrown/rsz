@@ -21,10 +21,10 @@
 #
 # -----------------------------------------------------------------------------
 
-catalog_directory = fake_example/catalogs/
+catalog_directory = cycle9/data/
 extension = .cat
-plot_directory = fake_example/plots/
-results_file = fake_example/results.txt
+plot_directory = cycle9/plots/
+results_file = cycle9/results.txt
 
 # -----------    Plots   ------------------------------------------------------
 #

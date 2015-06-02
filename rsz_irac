@@ -97,9 +97,10 @@ def add_to_catalog(output_file, cluster):
     :param cluster:
     :return:
     """
-    line = '\n{:17s}{:<6f}{:<6f}{:<6f}'.format(cluster.name, cluster.z.value,
-                                          cluster.z.upper_error,
-                                          cluster.z.lower_error)
+    line = '\n{:17s}{:<6f}{:<6f}{:<6f}'.format(cluster.name.replace(" ", "_"),
+                                               cluster.z.value,
+                                               cluster.z.upper_error,
+                                               cluster.z.lower_error)
     output_file.write(line)
 
 

@@ -18,6 +18,20 @@ class Cluster(object):
     # all cluster, this is a class variable rather than an instance variable.
     models = model.model_dict(0.01)
 
+    @staticmethod
+    def flux_to_mag(flux, zeropoint):
+        """Convert flux to magnitude with the given zeropoint.
+
+        :param flux: flux in whatever units. Choose your zeropoint correctly
+                     to make this work with the units flux is in.
+        :param zeropoint: zeropoint of the system (in mags)
+        :return: magnitude that corresponds to the given flux
+        """
+        if flux < 0:
+            return -99
+        return -2.5 * math.log10(flux) + zeropoint
+
+
     def __init__(self, filepath):
         self.name = Cluster._name(filepath)
 
@@ -29,13 +43,17 @@ class Cluster(object):
         with open(filepath) as cat:
             for line in cat:
                 if not line.startswith("#"):
-                    # Each line has the data of ra, dec, ch1 mag, ch1 error,
-                    #  ch2 mag, ch2 error.
-                    entries = line.split()
-                    ra = float(entries[0])
-                    dec = float(entries[1])
-                    ch1 = data.Data(float(entries[2]), float(entries[3]))
-                    ch2 = data.Data(float(entries[4]), float(entries[5]))
+
+                    id, ra, dec, f1, f2, vega_12 = [float(i) for i in
+                                                    line.split()]
+                    ch1_mag = Cluster.flux_to_mag(f1, 23.93)
+                    ch2_mag = Cluster.flux_to_mag(f2, 23.93)
+                    ab_12 = vega_12 - 3.260 + 2.787
+                    # verify that this is done correctly
+                    #print (ch1_mag - ch2_mag) - ab_12
+
+                    ch1 = data.Data(ch1_mag, 0.01)
+                    ch2 = data.Data(ch2_mag, 0.01)
 
                     this_source = source.Source(ra, dec, ch1, ch2)
                     self.sources_list.append(this_source)
@@ -45,7 +63,8 @@ class Cluster(object):
         filename = os.path.split(filepath)[-1]
         #TODO: parse the filename based on the format. I don't know what
         # that will be at the moment.
-        return filename
+        good_parts =  filename.split("_")[:2]
+        return " ".join(good_parts)
 
     def __repr__(self):
         return self.name
@@ -74,7 +93,8 @@ class Cluster(object):
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plotting.cmd(self)
-            plotting.add_all_models(fig, ax)
+            vc_ax, vmax = plotting.add_vega_labels(ax)
+            plotting.add_all_models(fig, ax, [ax, vc_ax, vmax])
             figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
@@ -84,6 +104,7 @@ class Cluster(object):
         # If the user wants to see this initial, fit, plot it.
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
+            vc_ax, vmax = plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value],
                                    prettyplot.almost_black)
             plotting.add_redshift(ax, self.z.value)
@@ -91,14 +112,14 @@ class Cluster(object):
 
         # set cuts that will be used in the successive iterations to refine
         # the fit of the red sequence
-        bluer_color_cut = [0.25, 0.225, 0.20]
-        redder_color_cut = [0.4, 0.3, 0.2]
+        bluer_color_cut = [0.25, 0.175, 0.10]
+        redder_color_cut = [0.3, 0.2, 0.1]
         # the bluer color cut is smaller than the red color cut to try to
         # throw away foregrounds. If too many foregrounds are included,
         # they drag the redshift down, since those foregrounds typically
         # have lower error, which biases the fit. That isn't a problem with
         # objects redder than the RS.
-        brighter_mag_cut = 1.4
+        brighter_mag_cut = 2.0
         dimmer_mag_cut = 0.6
 
         # do three iterations of fitting, each with a progressively smaller
@@ -114,15 +135,20 @@ class Cluster(object):
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
                 fig, ax = plotting.cmd(self)
+                vc_ax, vmax = plotting.add_vega_labels(ax)
                 plotting.add_one_model(ax, self.models[self.z.value],
                                        prettyplot.almost_black)
                 plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
+        # Set the final red sequence members
+        self._set_RS_membership(self.z.value, .2, .2, 2.0, 0.6)
+
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
             fig, ax = plotting.cmd(self)
+            vc_ax, vmax = plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value],
                                    prettyplot.almost_black)
             # I want to plot both the low and high models, so get those zs
@@ -146,7 +172,7 @@ class Cluster(object):
 
         # now that we are all done, save the figures.
         save_as_one_pdf(figures, params["plot_directory"] +
-                                self.name + ".pdf")
+                                self.name.replace(" ", "_") + ".pdf")
 
 
 
@@ -218,8 +244,8 @@ class Cluster(object):
                 # get the expected RS color for a galaxy of this magnitude
                 color_point = this_model.rs_color(source.ch2.value)
                 # see if it passes a color and magnitude cut
-                if (mag_point - 1.5 < source.ch2 < mag_point + 0.7) and \
-                   (color_point - 0.3 < source.ch1_m_ch2 < color_point + 0.3):
+                if (mag_point - 2.0 < source.ch2 < mag_point + 0.4) and \
+                   (color_point - 0.1 < source.ch1_m_ch2 < color_point + 0.1):
                     # if it did pass, note that it is nearby
                     nearby += 1
 

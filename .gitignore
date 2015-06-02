@@ -1,3 +1,9 @@
 # Pycharm stuff
 .idea/
 thoughts.txt
+
+cycle9/
+
+*.pyc
+
+correction/
