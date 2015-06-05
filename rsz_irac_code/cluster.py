@@ -1,9 +1,9 @@
 import os
+import decimal
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 
-import prettyplot
-# TODO: get rid of this import, and do everything manually
 
 import model
 import source
@@ -31,15 +31,13 @@ class Cluster(object):
             return -99
         return -2.5 * math.log10(flux) + zeropoint
 
+    def read_old_madcows(self, filepath):
+        """
+        Reads catalogs formatted in the same way as old MaDCoWS catalogs.
 
-    def __init__(self, filepath):
-        self.name = Cluster._name(filepath)
-
-        # I'll initialize emtpy source list, that will be filled as we go
-        self.sources_list = []
-        self.z = None
-
-        # then read in the objects in the catalog
+        :param filepath: path of the catalog
+        :return:none, but the self.sources_list is populated.
+        """
         with open(filepath) as cat:
             for line in cat:
                 if not line.startswith("#"):
@@ -58,13 +56,66 @@ class Cluster(object):
                     this_source = source.Source(ra, dec, ch1, ch2)
                     self.sources_list.append(this_source)
 
+    def read_SPT(self, filepath):
+        try:
+            with open(filepath) as cat:
+                for line in cat:
+                    if not line.startswith("#"):
+                        split_line = line.split()
+                        ra = float(split_line[3])
+                        dec = float(split_line[4])
+                        vega_ch1 = float(split_line[21])
+                        ch1_error = float(split_line[22])
+                        vega_ch2 = float(split_line[33])
+                        ch2_error = float(split_line[34])
+                        ab_ch1 = vega_ch1 + 2.787
+                        ab_ch2 = vega_ch2 + 3.260
+
+                        ch1 = data.Data(ab_ch1, ch1_error)
+                        ch2 = data.Data(ab_ch2, ch2_error)
+
+                        this_source = source.Source(ra, dec, ch1, ch2)
+                        self.sources_list.append(this_source)
+        except IndexError:
+            print filepath
+    def read_new_irac(self, filepath):
+        with open(filepath) as cat:
+            for line in cat:
+                if not line.startswith("#") and not line.strip().startswith("id"):
+                    split_line = [float(i) for i in line.split()]
+                    ra = split_line[1]
+                    dec = split_line[2]
+                    vega_ch1 = split_line[11]
+                    vega_ch1_err = split_line[12]
+                    vega_ch2 = split_line[13]
+                    vega_ch2_err = split_line[14]
+                    ab_ch1 = vega_ch1 + 2.787
+                    ab_ch2 = vega_ch2 + 3.260
+
+                    ch1 = data.Data(ab_ch1, vega_ch1_err)
+                    ch2 = data.Data(ab_ch2, vega_ch2_err)
+
+                    this_source = source.Source(ra, dec, ch1, ch2)
+                    self.sources_list.append(this_source)
+
+
+    def __init__(self, filepath):
+        self.name = Cluster._name(filepath)
+
+        # I'll initialize emtpy source list, that will be filled as we go
+        self.sources_list = []
+        self.z = None
+
+        # then read in the objects in the catalog
+        self.read_new_irac(filepath)
+
+
     @staticmethod
     def _name(filepath):
         filename = os.path.split(filepath)[-1]
         #TODO: parse the filename based on the format. I don't know what
         # that will be at the moment.
-        good_parts =  filename.split("_")[:2]
-        return " ".join(good_parts)
+        return  filename.split(".")[0]
 
     def __repr__(self):
         return self.name
@@ -105,15 +156,14 @@ class Cluster(object):
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
             vc_ax, vmax = plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value],
-                                   prettyplot.almost_black)
+            plotting.add_one_model(ax, self.models[self.z.value], "k")
             plotting.add_redshift(ax, self.z.value)
             figures.append(fig)
 
         # set cuts that will be used in the successive iterations to refine
         # the fit of the red sequence
-        bluer_color_cut = [0.25, 0.175, 0.10]
-        redder_color_cut = [0.3, 0.2, 0.1]
+        bluer_color_cut = [0.35, 0.35, 0.15]
+        redder_color_cut = [0.35, 0.25, 0.15]
         # the bluer color cut is smaller than the red color cut to try to
         # throw away foregrounds. If too many foregrounds are included,
         # they drag the redshift down, since those foregrounds typically
@@ -136,8 +186,7 @@ class Cluster(object):
             if params["fitting_procedure"] == "1":
                 fig, ax = plotting.cmd(self)
                 vc_ax, vmax = plotting.add_vega_labels(ax)
-                plotting.add_one_model(ax, self.models[self.z.value],
-                                       prettyplot.almost_black)
+                plotting.add_one_model(ax, self.models[self.z.value], "k")
                 plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
@@ -149,8 +198,7 @@ class Cluster(object):
         if params["final_CMD"] == "1":
             fig, ax = plotting.cmd(self)
             vc_ax, vmax = plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value],
-                                   prettyplot.almost_black)
+            plotting.add_one_model(ax, self.models[self.z.value], "k")
             # I want to plot both the low and high models, so get those zs
             high_z = self.z.value + self.z.upper_error
             low_z = self.z.value - self.z.lower_error
@@ -234,6 +282,8 @@ class Cluster(object):
         max_nearby = -999
         best_z = -999
 
+        nearbies = []
+
         # Iterate through the redshifts
         for z in models:
             nearby = 0  # reset the number of nearby galaxies
@@ -244,18 +294,26 @@ class Cluster(object):
                 # get the expected RS color for a galaxy of this magnitude
                 color_point = this_model.rs_color(source.ch2.value)
                 # see if it passes a color and magnitude cut
-                if (mag_point - 2.0 < source.ch2 < mag_point + 0.4) and \
+                if (mag_point - 2.0 < source.ch2 < mag_point + 0.0) and \
                    (color_point - 0.1 < source.ch1_m_ch2 < color_point + 0.1):
                     # if it did pass, note that it is nearby
                     nearby += 1
 
+            nearbies.append((z, nearby))
             # replace the best values if this is the best
             if nearby > max_nearby:
                 max_nearby = nearby
                 best_z = z
+        x, y = zip(*nearbies)
 
-        # Turn this into a data object, with no errors
-        z = data.AsymmetricData(best_z, np.NaN, np.NaN)
+        # fig, ax = plt.subplots()
+        # ax.scatter(x, y)
+        # fig.savefig("test{}.jpg".format(self.name))
+
+        # Turn this into a data object, with errors that span the maximum range
+        up_error = sorted(models.keys())[-1] - best_z
+        low_error = best_z - sorted(models.keys())[0]
+        z = data.AsymmetricData(best_z, up_error, low_error)
         return z
 
     def _set_RS_membership(self, redshift, bluer, redder, brighter, dimmer):
@@ -329,6 +387,8 @@ class Cluster(object):
         to_fit = [source for source in self.sources_list if source.RS_member
                   and source.near_center]
 
+        if len(to_fit) == 0:
+            return self.z
         # initialize lists for the chi squared distribution and the redshifts
         chi_sq_values = []
         redshifts = []
@@ -384,6 +444,23 @@ class Cluster(object):
         low_error = best_z - low_z
         return data.AsymmetricData(best_z, high_error, low_error)
         # TODO: that was a long function. Break it up somehow?
+
+    def _significance(self):
+        """
+        """
+        # set the red sequence members for the accepted red sequence.
+        self._set_RS_membership(self.z.value, bluer=0.1, redder=0.1,
+                                brighter=2.5, dimmer=0)
+
+        # count the RS members
+        best_rs = 0
+        for source in self.sources_list:
+            if source.RS_member and source.near_center:
+                best_rs += 1
+
+        # do the red sequence redder
+        # if self.z.value <
+
 
 
 

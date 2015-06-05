@@ -21,10 +21,10 @@
 #
 # -----------------------------------------------------------------------------
 
-catalog_directory = cycle9/data/
+catalog_directory = MaDCoWS_test/catalogs/
 extension = .cat
-plot_directory = cycle9/plots/
-results_file = cycle9/results.txt
+plot_directory = MaDCoWS_test/plots/
+results_file = MaDCoWS_test/results.txt
 
 # -----------    Plots   ------------------------------------------------------
 #

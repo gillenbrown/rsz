@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+# TODO: make the catalog search function recursively find all files in each
+# subdirectory too.
+
 import os
 import sys
 
@@ -71,6 +74,22 @@ def parse_config():
     return params
 
 
+def get_catalogs(parent_directory, extension):
+    """Gets all the catalogs in the parent directory (and its subdirectories)
+    that end with extension.
+
+    :param parent_directory: parent directory to search for catalogs.
+    :param extension: extension of the files that will be returned
+    :return: List of paths to files in parent_directory that end with
+             extension.
+    """
+    catalogs = []
+    for dirpath, dirnames, filenames in os.walk(parent_directory):
+        for filename in filenames:
+            if filename.endswith(extension):
+                catalogs.append(os.path.join(dirpath, filename))
+    return catalogs
+
 def start_output():
     """Start the output file, and put the header in the file.
 
@@ -116,9 +135,7 @@ def main():
     # parse the config file
     params = parse_config()
 
-    catalogs = os.listdir(params["catalog_directory"])
-    # weed out things that aren't catalogs
-    catalogs = [cat for cat in catalogs if cat.endswith(params["extension"])]
+    catalogs = get_catalogs(params["catalog_directory"], params["extension"])
 
     # start the output file
     output_file = start_output()
@@ -128,9 +145,8 @@ def main():
     sys.stdout.write("0/{} clusters finished.".format(len(catalogs)))
     sys.stdout.flush()
 
-    for i, cat in enumerate(catalogs, start=1):
-        filepath = params["catalog_directory"] + cat
-        cl = cluster.Cluster(filepath)
+    for i, cat_path in enumerate(catalogs, start=1):
+        cl = cluster.Cluster(cat_path)
 
         # do the fitting procedure
         cl.fit_z(params)

@@ -65,8 +65,15 @@ class RSModel(object):
         """
         # TODO: actually make this correction.
         # TODO: make an iPython notebook documenting the way I found this
+        # return redshift
         # correction, once I actually do that.
-        return redshift
+        fit = [ 1.30355557, -2.16425405,  1.69792745,  0.10401333]
+        # turn to decimal , so it can play nice with redshifts, which are
+        # of type decimal
+        fit = [decimal.Decimal(i) for i in fit]
+        corrected = sum([coeff * (redshift**i) for i, coeff in
+                         enumerate(reversed(fit))])
+        return decimal.Decimal(str(round(corrected, 3)))
 
 
     def __init__(self, redshift, ch1_mag, ch2_mag):

@@ -1,7 +1,7 @@
 import model
 import data
 
-import prettyplot
+# import prettyplot
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
@@ -36,7 +36,7 @@ def cmd(cluster):
         if source.RS_member:
             point_color = "r"
         else:
-            point_color = prettyplot.almost_black
+            point_color = "k"
 
         ax.errorbar(x=mag, y=color.value, yerr=color.error, c=point_color,
                     fmt=".", elinewidth=0.35, capsize=0, markersize=5)
@@ -203,7 +203,7 @@ def location(cluster):
             rest_ra.append(source.ra)
             rest_dec.append(source.dec)
     ax.scatter(rest_ra, rest_dec, c="0.7", linewidth=0)
-    ax.scatter(center_ra, center_dec, c=prettyplot.almost_black, linewidth=0,
+    ax.scatter(center_ra, center_dec, c="k", linewidth=0,
                label="Location Cut")
     ax.scatter(rs_member_ra, rs_member_dec, c="r", linewidth=0,
                label="Red Sequence")
