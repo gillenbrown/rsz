@@ -103,10 +103,20 @@ def start_output():
              "# - z: best fit redshift of the cluster\n" + \
              "# - ez+: 1 sigma error on the redshift above the best fit\n" + \
              "# - ez-: 1 sigma error on the redshift below the best fit\n" + \
+             "# - flag: sum of the following flags:\n" + \
+             "#         1: Not much clustering. The objects marked as red" + \
+             " sequence members\n" + \
+             "#            weren't centrally concentrated.\n" + \
+             "#         2: Possible double red sequence. There are two" + \
+             " maximums in the\n" + \
+             "#            likelihood of redshift.\n" + \
+             "#         4: Indistinct red sequence. The red sequence isn't" + \
+             " clean.\n" + \
              "#\n" + \
              "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
-    labels = '# {:15s}{:6s}{:6s}{:6s}'.format("name", "z", "ez+", "ez-")
+    labels = '# {:15s}{:6s}{:6s}{:6s}{:6s}'.format("name", "z", "ez+",
+                                                   "ez-", "flags")
     output_file.write(labels)
     return output_file
 
@@ -116,10 +126,11 @@ def add_to_catalog(output_file, cluster):
     :param cluster:
     :return:
     """
-    line = '\n{:17s}{:<6f}{:<6f}{:<6f}'.format(cluster.name.replace(" ", "_"),
+    line = '\n{:17s}{:<6f}{:<6f}{:<6f}{:<6}'.format(cluster.name.replace(" ", "_"),
                                                cluster.z.value,
                                                cluster.z.upper_error,
-                                               cluster.z.lower_error)
+                                               cluster.z.lower_error,
+                                               cluster.flags)
     output_file.write(line)
 
 

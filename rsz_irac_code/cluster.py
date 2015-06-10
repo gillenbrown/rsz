@@ -105,9 +105,12 @@ class Cluster(object):
         # I'll initialize emtpy source list, that will be filled as we go
         self.sources_list = []
         self.z = None
+        self.flags = 0
 
         # then read in the objects in the catalog
         self.read_new_irac(filepath)
+        # self.read_SPT(filepath)
+
 
 
     @staticmethod
@@ -162,22 +165,22 @@ class Cluster(object):
 
         # set cuts that will be used in the successive iterations to refine
         # the fit of the red sequence
-        bluer_color_cut = [0.35, 0.35, 0.15]
-        redder_color_cut = [0.35, 0.25, 0.15]
+        bluer_color_cut = [0.3, 0.2]
+        redder_color_cut = [0.3, 0.2]
         # the bluer color cut is smaller than the red color cut to try to
         # throw away foregrounds. If too many foregrounds are included,
         # they drag the redshift down, since those foregrounds typically
         # have lower error, which biases the fit. That isn't a problem with
         # objects redder than the RS.
-        brighter_mag_cut = 2.0
-        dimmer_mag_cut = 0.6
+        brighter_mag_cut = 2.5
+        dimmer_mag_cut = 0.0
 
         # do three iterations of fitting, each with a progressively smaller
         # color cut, which is designed to hone in on the red sequence.
-        for i in range(0, 3):
+        for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
             # set red sequence members based on the cuts
-            self._set_RS_membership(self.z.value, bluer_color_cut[i],
-                                    redder_color_cut[i], brighter_mag_cut,
+            self._set_RS_membership(self.z.value, bluer_cut,
+                                    redder_cut, brighter_mag_cut,
                                     dimmer_mag_cut)
 
             self.z = self._chi_square_w_error()
@@ -192,6 +195,8 @@ class Cluster(object):
 
         # Set the final red sequence members
         self._set_RS_membership(self.z.value, .2, .2, 2.0, 0.6)
+        # and do the location check based on these RS values
+        self._location_check()
 
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
@@ -215,6 +220,10 @@ class Cluster(object):
             fig, ax = plotting.location(self)
             plotting.add_redshift(ax, self.z)
             figures.append(fig)
+
+
+
+        self._significance()
 
 
 
@@ -282,39 +291,80 @@ class Cluster(object):
         max_nearby = -999
         best_z = -999
 
-        nearbies = []
+        z_nearby_pairs = []
 
         # Iterate through the redshifts
-        for z in models:
+        for z in sorted(models):
             nearby = 0  # reset the number of nearby galaxies
 
             this_model = models[z]
             mag_point = this_model.mag_point
             for source in self.sources_list:
-                # get the expected RS color for a galaxy of this magnitude
-                color_point = this_model.rs_color(source.ch2.value)
-                # see if it passes a color and magnitude cut
-                if (mag_point - 2.0 < source.ch2 < mag_point + 0.0) and \
-                   (color_point - 0.1 < source.ch1_m_ch2 < color_point + 0.1):
-                    # if it did pass, note that it is nearby
-                    nearby += 1
+                if source.near_center:
+                    # get the expected RS color for a galaxy of this magnitude
+                    color_point = this_model.rs_color(source.ch2.value)
+                    # see if it passes a color and magnitude cut
+                    if (mag_point - 2.0 < source.ch2 < mag_point) and \
+                       (color_point - 0.1 < source.ch1_m_ch2 < color_point + 0.1):
+                        # if it did pass, note that it is nearby
+                        nearby += 1
 
-            nearbies.append((z, nearby))
+            z_nearby_pairs.append((z, nearby))
             # replace the best values if this is the best
             if nearby > max_nearby:
                 max_nearby = nearby
                 best_z = z
-        x, y = zip(*nearbies)
 
+        redshifts, nearbies = zip(*z_nearby_pairs)
         # fig, ax = plt.subplots()
-        # ax.scatter(x, y)
-        # fig.savefig("test{}.jpg".format(self.name))
+        # ax.plot(redshifts, nearbies, marker=".", markersize=30)
+        # check for the double red sequence
+        self._double_red_sequence(nearbies)
 
         # Turn this into a data object, with errors that span the maximum range
         up_error = sorted(models.keys())[-1] - best_z
         low_error = best_z - sorted(models.keys())[0]
         z = data.AsymmetricData(best_z, up_error, low_error)
         return z
+
+    def _double_red_sequence(self, nearby):
+        """Checks for the possiblity of a double red sequence.
+
+        Is to be used inside the initial_z funciton, since it uses the list of
+        nearby galaxies as a function of redshift. It looks for two or more
+        maxima in the number of red sequence galaxies simply by comparing each
+        point to its neighbors.
+
+        :param nearby: list of galaxies nearby to the red sequence at a given
+                       redshift. Should be sorted in order of increasing
+                       redshift. This is taken care of by the initial_z
+                       function, though, so as long as it is used there
+                       everything will be fine.
+        :returns: None, but does set the cluster's flag variable if need be.
+        """
+        num_local_maxima = 0
+        # We will compare each one to its 3 neighbors, so start as the third
+        # index.
+        idx = 3
+        # we can't go past the 4th to last item.
+        while 3<= idx <= len(nearby) - 4:
+            item = nearby[idx]
+            # compare it to its three neighbors on each side.
+            if item >= nearby[idx-3] and item >= nearby[idx-2] and \
+               item >= nearby[idx-1] and item >= nearby[idx+1] and \
+               item >= nearby[idx+2] and item >= nearby[idx+3]:
+                # if it is bigger than all 6 neighbors, call it a maxima.
+                num_local_maxima += 1
+                # move 3 ahead, to avoid the possibility of two maxima being
+                # right next to each other, which can happen if the top is
+                # flat. That obviously isn't what we are looking for here.
+                idx += 3
+            else:
+                idx += 1
+        # If there are 2 or more maxima, increment the flag.
+        if num_local_maxima >= 2:
+            self.flags += 2
+
 
     def _set_RS_membership(self, redshift, bluer, redder, brighter, dimmer):
         """Set some sources to be RS members, based on color and mag cuts.
@@ -446,23 +496,99 @@ class Cluster(object):
         # TODO: that was a long function. Break it up somehow?
 
     def _significance(self):
+        """ Determine whether or not there is a clean red sequence.
+
+        This works by counting the number of red sequence galaxies of the best
+        fit model, then comparing that to the number of red sequence galaxies
+        if the red sequence were bluer or redder. If the best fit doesn't have
+        a lot more than the non-best fits, then we mark the flag for a
+        not clean red sequence.
+
+        :return: None, but the flag is incremented if there isn't a clean red
+                 sequence.
         """
-        """
+
+        # set cuts to be used each time
+        bluer = 0.1
+        redder = 0.1
+        brighter = 2.5
+        dimmer = 0.0
         # set the red sequence members for the accepted red sequence.
-        self._set_RS_membership(self.z.value, bluer=0.1, redder=0.1,
-                                brighter=2.5, dimmer=0)
+        self._set_RS_membership(self.z.value, bluer=bluer, redder=redder,
+                                brighter=brighter, dimmer=dimmer)
+        # count the RS members in the best fit
+        best_rs = self._count_galaxies()
 
-        # count the RS members
-        best_rs = 0
+        # set red sequence members to be in the color range 0.3 redder than
+        # the best fit. It's weird that we subtract from bluer and add to
+        # redder, but if you think of making it less blue and more red you can
+        # convince yourself.
+        self._set_RS_membership(self.z.value, bluer=bluer-0.3,
+                                redder=redder+0.3, brighter=brighter,
+                                dimmer=dimmer)
+        # again count the galaxies in this red sequence
+        red_rs = self._count_galaxies()
+
+        # set red sequenc members to be a bluer red sequence
+        self._set_RS_membership(self.z.value, bluer=bluer+0.3,
+                                redder=redder-0.3, brighter=brighter,
+                                dimmer=dimmer)
+        blue_rs = self._count_galaxies()
+
+        # Compare the numbers in the 3 red sequences. Set the flag if the
+        # number of galaxies in the best red sequence is less than twice
+        # the sum of the two offset red sequences. The 2 times is arbitrary.
+        # It was chosen to make things I
+        if ((red_rs + blue_rs) * 2.0) >= best_rs:
+            self.flags += 4
+
+    def _count_galaxies(self):
+        """ Counts the number of red sequence galaxies near the center.
+
+        :return: number of red sequence galaxies that are near the center.
+        :rtype: float. I return float so that it can be used in division in
+                Python 2.7 smartly.
+        """
+        count = 0
         for source in self.sources_list:
-            if source.RS_member and source.near_center:
-                best_rs += 1
-
-        # do the red sequence redder
-        # if self.z.value <
+            if source.near_center and source.RS_member:
+                count += 1
+        return float(count)
 
 
 
+    def _location_check(self):
+        """Looks to see if the red sequence galaxies are concentrated in the
+        middle. If they are not, this will raise a flag.
+
+        It works be getting the percent of galaxies within the location cut
+        that are red sequence members, then comparing that to the percentage
+        outside the location cut. If the percentage inside isn't 75 percent
+        higher, then the flag is raised.
+
+        """
+        # find how many objects are near then center and not near the center
+        # that are or are not red sequence members. I converted everything
+        # to floats to avoid the rounding that comes from dividing integers
+        # in Python 2.x
+        total_near_center = float(len([source for source in self.sources_list
+                             if source.near_center]))
+        rs_near_center = float(len([source for source in self.sources_list
+                          if source.near_center and source.RS_member]))
+
+        total_not_near_center = float(len([source for source in
+                                 self.sources_list if not source.near_center]))
+        rs_not_near_center = float(len([source for source in self.sources_list
+                              if not source.near_center and source.RS_member]))
+
+        # Calculate the percent of sources that are red sequence members both
+        # near and far from the center.
+        near_rs_percent = rs_near_center / total_near_center
+        not_near_rs_percent = rs_not_near_center / total_not_near_center
+
+        # raise the flag if the percent near the center isn't high enough.
+        if near_rs_percent <= not_near_rs_percent * 1.75:
+            self.flags += 1
 
 
 

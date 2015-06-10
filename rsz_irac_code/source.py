@@ -40,7 +40,8 @@ class Source(object):
         :return: None, but some sources will be marked as RS members.
         """
 
-        if blue < self.ch1_m_ch2 < red and bright < self.ch2 < faint:
+        if blue < self.ch1_m_ch2 < red and bright < self.ch2 < faint \
+                and self.ch1_m_ch2.error < 0.2:
             self.RS_member = True
         else:
             self.RS_member = False

@@ -67,7 +67,7 @@ class RSModel(object):
         # TODO: make an iPython notebook documenting the way I found this
         # return redshift
         # correction, once I actually do that.
-        fit = [ 1.30355557, -2.16425405,  1.69792745,  0.10401333]
+        fit = [ 1.28015266, -0.31305167]
         # turn to decimal , so it can play nice with redshifts, which are
         # of type decimal
         fit = [decimal.Decimal(i) for i in fit]
