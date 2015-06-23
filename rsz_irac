@@ -162,6 +162,10 @@ def main():
         # do the fitting procedure
         cl.fit_z(params)
 
+        # if the user wants to make rs catalogs, do it
+        if params["rs_catalog_dir"] != '0':
+            cl.rs_catalog(params["rs_catalog_dir"] + cl.name + ".rs.cat")
+
         # make the output catalog
         add_to_catalog(output_file, cl)
 

@@ -53,7 +53,7 @@ class Cluster(object):
                     ch1 = data.Data(ch1_mag, 0.01)
                     ch2 = data.Data(ch2_mag, 0.01)
 
-                    this_source = source.Source(ra, dec, ch1, ch2)
+                    this_source = source.Source(ra, dec, ch1, ch2, dist=None)
                     self.sources_list.append(this_source)
 
     def read_SPT(self, filepath):
@@ -74,10 +74,12 @@ class Cluster(object):
                         ch1 = data.Data(ab_ch1, ch1_error)
                         ch2 = data.Data(ab_ch2, ch2_error)
 
-                        this_source = source.Source(ra, dec, ch1, ch2)
+                        this_source = source.Source(ra, dec, ch1,
+                                                    ch2, dist=None)
                         self.sources_list.append(this_source)
         except IndexError:
             print filepath
+
     def read_new_irac(self, filepath):
         with open(filepath) as cat:
             for line in cat:
@@ -89,15 +91,15 @@ class Cluster(object):
                     vega_ch1_err = split_line[12]
                     vega_ch2 = split_line[13]
                     vega_ch2_err = split_line[14]
+                    dist = split_line[19]
                     ab_ch1 = vega_ch1 + 2.787
                     ab_ch2 = vega_ch2 + 3.260
 
                     ch1 = data.Data(ab_ch1, vega_ch1_err)
                     ch2 = data.Data(ab_ch2, vega_ch2_err)
 
-                    this_source = source.Source(ra, dec, ch1, ch2)
+                    this_source = source.Source(ra, dec, ch1, ch2, dist)
                     self.sources_list.append(this_source)
-
 
     def __init__(self, filepath):
         self.name = Cluster._name(filepath)
@@ -111,8 +113,6 @@ class Cluster(object):
         self.read_new_irac(filepath)
         # self.read_SPT(filepath)
 
-
-
     @staticmethod
     def _name(filepath):
         filename = os.path.split(filepath)[-1]
@@ -122,7 +122,6 @@ class Cluster(object):
 
     def __repr__(self):
         return self.name
-
 
     def fit_z(self, params):
         """
@@ -231,9 +230,6 @@ class Cluster(object):
         save_as_one_pdf(figures, params["plot_directory"] +
                                 self.name.replace(" ", "_") + ".pdf")
 
-
-
-
     def _location_cut(self, radius):
         """
         Does a location cut on the galaxies in the image.
@@ -261,11 +257,15 @@ class Cluster(object):
         middle_dec = (max(decs) + min(decs)) / 2.0
 
         for source in self.sources_list:
-            # Use pythagorean theorem to find distance in degrees
-            dist = math.sqrt((source.ra - middle_ra)**2 +
-                             (source.dec - middle_dec)**2)
 
-            if dist < radius/60.0:  # divide by 60 since radius is in arcmin
+
+            if source.dist is None:
+                # Use pythagorean theorem to find distance in degrees, then
+                # multiply by 3600 to convert to arcsec
+                source.dist = math.sqrt((source.ra - middle_ra)**2 +
+                                        (source.dec - middle_dec)**2) * 3600
+
+            if source.dist < radius*60.0: # convert radius to arcsec
                 source.near_center = True
             else:
                 source.near_center = False
@@ -350,9 +350,9 @@ class Cluster(object):
         while 3<= idx <= len(nearby) - 4:
             item = nearby[idx]
             # compare it to its three neighbors on each side.
-            if item >= nearby[idx-3] and item >= nearby[idx-2] and \
+            if item > nearby[idx-3] and item > nearby[idx-2] and \
                item >= nearby[idx-1] and item >= nearby[idx+1] and \
-               item >= nearby[idx+2] and item >= nearby[idx+3]:
+               item > nearby[idx+2] and item > nearby[idx+3]:
                 # if it is bigger than all 6 neighbors, call it a maxima.
                 num_local_maxima += 1
                 # move 3 ahead, to avoid the possibility of two maxima being
@@ -364,7 +364,6 @@ class Cluster(object):
         # If there are 2 or more maxima, increment the flag.
         if num_local_maxima >= 2:
             self.flags += 2
-
 
     def _set_RS_membership(self, redshift, bluer, redder, brighter, dimmer):
         """Set some sources to be RS members, based on color and mag cuts.
@@ -555,8 +554,6 @@ class Cluster(object):
                 count += 1
         return float(count)
 
-
-
     def _location_check(self):
         """Looks to see if the red sequence galaxies are concentrated in the
         middle. If they are not, this will raise a flag.
@@ -590,10 +587,32 @@ class Cluster(object):
         if near_rs_percent <= not_near_rs_percent * 1.75:
             self.flags += 1
 
+    def rs_catalog(self, filepath):
+        """ Writes a catalog of all the objects, indicating the RS members.
 
+        :param filepath: place the catalog should be saved.
+        :returns: none, but the catalog is saved to disk.
+        """
+        with open(filepath, "w") as cat:
+            header = "# {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
+                     "{:10s} {:2s}\n".format("ra", "dec", "ch1", "ech1",
+                                             "ch2", "ech2", "ch1-ch2",
+                                             "ech1-ch2", "RS")
+            cat.write(header)
 
-
-
+            for source in self.sources_list:
+                if source.RS_member:
+                    rs = 1
+                else:
+                    rs = 0
+                cat.write("{:10f} {:10f} {:10f} {:10f} {:10f} {:10f} {:10f} "
+                          "{:10f} {:2d}\n".format(source.ra, source.dec,
+                                                  source.ch1.value,
+                                                  source.ch1.error,
+                                                  source.ch2.value,
+                                                  source.ch2.error,
+                                                  source.ch1_m_ch2.value,
+                                                  source.ch1_m_ch2.error, rs))
 
 
 

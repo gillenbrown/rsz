@@ -18,6 +18,8 @@
 # - results_file: Location and name of the file where the results will be 
 #     saved. It will be a text file giving the redshift and error for each 
 #     catalog.
+# - rs_catalog_dir: The location where the red sequence catalogs will be stored. 
+#     If you don't want RS catalogs, enter 0.
 #
 # -----------------------------------------------------------------------------
 
@@ -25,6 +27,7 @@ catalog_directory = catalogs/
 extension = .cat
 plot_directory = plots/
 results_file = results.txt
+rs_catalog_dir = 0
 
 # -----------    Plots   ------------------------------------------------------
 #

@@ -9,7 +9,7 @@
 # Note: For all directories below: If relative paths are used, they need to be 
 #   relative to the directory the program is called from.
 #
-# - Catalog directory: The code will look for catalogs in the directory below. 
+# - catalog_directory: The code will look for catalogs in the directory below. 
 # - extension: The extension the catalogs have. The code will only open files
 #     with this extension.
 # - plot_directory: The directory the plots will be saved in. There will be one
@@ -18,6 +18,8 @@
 # - results_file: Location and name of the file where the results will be 
 #     saved. It will be a text file giving the redshift and error for each 
 #     catalog.
+# - rs_catalog_dir: The location where the red sequence catalogs will be stored. 
+#     If you don't want RS catalogs, enter 0.
 #
 # -----------------------------------------------------------------------------
 
@@ -25,6 +27,7 @@ catalog_directory = MaDCoWS_test/catalogs/
 extension = .cat
 plot_directory = MaDCoWS_test/plots/
 results_file = MaDCoWS_test/results.txt
+rs_catalog_dir = 0
 
 # -----------    Plots   ------------------------------------------------------
 #
