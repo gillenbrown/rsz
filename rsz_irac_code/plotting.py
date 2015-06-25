@@ -1,8 +1,6 @@
 import model
 import data
 
-# import prettyplot
-
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
@@ -46,7 +44,7 @@ def cmd(cluster):
     ax.set_ylim(-1, 0.5)
     ax.set_xlabel("ch2  [AB]")
     ax.set_ylabel("ch1 - ch2  [AB]")
-    ax.text(0.02, 0.96, cluster.name, transform=ax.transAxes,
+    ax.text(0.02, 0.96, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
 

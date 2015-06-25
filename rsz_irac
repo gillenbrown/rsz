@@ -157,13 +157,13 @@ def main():
     sys.stdout.flush()
 
     for i, cat_path in enumerate(catalogs, start=1):
-        cl = cluster.Cluster(cat_path)
+        cl = cluster.Cluster(cat_path, params)
 
         # do the fitting procedure
         cl.fit_z(params)
 
         # if the user wants to make rs catalogs, do it
-        if params["rs_catalog_dir"] != '0':
+        if params["rs_catalog_dir"] != '-99':
             cl.rs_catalog(params["rs_catalog_dir"] + cl.name + ".rs.cat")
 
         # make the output catalog
@@ -191,3 +191,5 @@ if __name__ == "__main__":
 # TODO: make a readme that explains the science and workings behind the code
 # TODO: make a .txt file documenting how to run the code.
 # TODO: add liscense?
+
+# TODO: make the name be just the filename stripped of the extension.

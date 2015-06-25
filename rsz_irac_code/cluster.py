@@ -1,16 +1,10 @@
 import os
-import decimal
 import math
-import numpy as np
-import matplotlib.pyplot as plt
-
 
 import model
 import source
 import data
 import plotting
-
-
 
 class Cluster(object):
     # Keeping the predictions for the red sequence with the cluster object
@@ -31,78 +25,155 @@ class Cluster(object):
             return -99
         return -2.5 * math.log10(flux) + zeropoint
 
-    def read_old_madcows(self, filepath):
+    @staticmethod
+    def percent_flux_errors_to_mag_errors(percent_flux_error):
+        """Converts a percentage flux error into a magnitude error.
+
+        m = -2.5 log10(F) + C
+        dm = -2.5/(ln(10)) dF/F
+
+        :param percent_flux_error: percentage flux error
+        :return: magnitude error corresponding to the percentage flux error.
         """
-        Reads catalogs formatted in the same way as old MaDCoWS catalogs.
+        return (2.5 / math.log(10, math.e)) * percent_flux_error
 
-        :param filepath: path of the catalog
-        :return:none, but the self.sources_list is populated.
+    @staticmethod
+    def to_float(item):
+        """If an item can be converted to a float, it will be. If not, the item
+        will be returned unchanged.
+
+        :param item: Item to potentially convert to a float.
+        :return: the item, potentially converted to a float
         """
-        with open(filepath) as cat:
-            for line in cat:
-                if not line.startswith("#"):
-
-                    id, ra, dec, f1, f2, vega_12 = [float(i) for i in
-                                                    line.split()]
-                    ch1_mag = Cluster.flux_to_mag(f1, 23.93)
-                    ch2_mag = Cluster.flux_to_mag(f2, 23.93)
-                    ab_12 = vega_12 - 3.260 + 2.787
-                    # verify that this is done correctly
-                    #print (ch1_mag - ch2_mag) - ab_12
-
-                    ch1 = data.Data(ch1_mag, 0.01)
-                    ch2 = data.Data(ch2_mag, 0.01)
-
-                    this_source = source.Source(ra, dec, ch1, ch2, dist=None)
-                    self.sources_list.append(this_source)
-
-    def read_SPT(self, filepath):
         try:
-            with open(filepath) as cat:
-                for line in cat:
-                    if not line.startswith("#"):
-                        split_line = line.split()
-                        ra = float(split_line[3])
-                        dec = float(split_line[4])
-                        vega_ch1 = float(split_line[21])
-                        ch1_error = float(split_line[22])
-                        vega_ch2 = float(split_line[33])
-                        ch2_error = float(split_line[34])
-                        ab_ch1 = vega_ch1 + 2.787
-                        ab_ch2 = vega_ch2 + 3.260
+            return float(item)
+        except ValueError:  # That's the error from a failed float conversion.
+            return item
 
-                        ch1 = data.Data(ab_ch1, ch1_error)
-                        ch2 = data.Data(ab_ch2, ch2_error)
+    def read_catalog(self, filepath, params):
+        """
 
-                        this_source = source.Source(ra, dec, ch1,
-                                                    ch2, dist=None)
-                        self.sources_list.append(this_source)
-        except IndexError:
-            print filepath
-
-    def read_new_irac(self, filepath):
+        :param filepath:
+        :return:
+        """
         with open(filepath) as cat:
             for line in cat:
                 if not line.startswith("#") and not line.strip().startswith("id"):
-                    split_line = [float(i) for i in line.split()]
-                    ra = split_line[1]
-                    dec = split_line[2]
-                    vega_ch1 = split_line[11]
-                    vega_ch1_err = split_line[12]
-                    vega_ch2 = split_line[13]
-                    vega_ch2_err = split_line[14]
-                    dist = split_line[19]
-                    ab_ch1 = vega_ch1 + 2.787
-                    ab_ch2 = vega_ch2 + 3.260
+                    split_line = [Cluster.to_float(i) for i in line.split()]
 
-                    ch1 = data.Data(ab_ch1, vega_ch1_err)
-                    ch2 = data.Data(ab_ch2, vega_ch2_err)
+                    ra, dec = self.get_ra_dec(params, split_line)
+                    ch1, ch2, ch1mch2 = self.get_mags(params, split_line)
+                    dist = self.get_dist(params, split_line)
 
-                    this_source = source.Source(ra, dec, ch1, ch2, dist)
+                    if ra is None and dec is None and dist is None:
+                        raise TypeError("Specify one of either ra/dec or dist")
+
+                    # turn this info into a source object, then add it.
+                    this_source = source.Source(ra, dec, ch1, ch2,
+                                                dist, ch1mch2)
                     self.sources_list.append(this_source)
 
-    def __init__(self, filepath):
-        self.name = Cluster._name(filepath)
+    def get_ra_dec(self, params, split_line):
+        """Parses the line to get the ra and dec
+
+        :param params: Parameter dictionary that is passed all around the code.
+        :param split_line: Line of the catalog split into the components.
+        :return: ra and dec as a tuple
+        """
+        if params['ra'] != "-99" and params["dec"] != "-99":
+            ra = split_line[int(params["ra"])]
+            dec = split_line[int(params["dec"])]
+        else:
+            ra, dec = None, None
+        return ra, dec
+
+    def get_mags(self, params, split_line):
+        """ Parses the config file to get the magnitudes.
+
+        :param params: Parameter dictionary that is passed all around the code.
+        :param split_line: Line of the catalog split into the components.
+        :return: ch1, ch2, ch1-ch2. Each will be in AB mags, and returned as
+                 a data object, to include the errors.
+        """
+        # check that they did the type and mags right
+        if params["type"] not in ["mag", "flux"] or \
+           params["mags"] not in ["vega", "ab"]:
+            raise TypeError("Either type or mags wasn't specified correctly"
+                            "in the parameter file.")
+
+        # get the data that is in those columns, whether it is mags or flux
+        ch2 = split_line[int(params["ch2"])]
+        ech2 = split_line[int(params["ech2"])]
+        if params["ch1"] != "-99":
+            ch1 = split_line[int(params["ch1"])]
+            ech1 = split_line[int(params["ech1"])]
+        else:
+            ch1 = None
+            ech1 = None
+        if params["ch1-ch2"] != "-99":
+            ch1mch2 = split_line[int(params["ch1-ch2"])]
+            ech1mch2 = split_line[int(params["e_ch1-ch2"])]
+        else:
+            ch1mch2 = None
+            ech1mch2 = None
+
+        # Convert fluxes to magnitudes if need be
+        if params["type"] == "flux":
+            ch1 = Cluster.flux_to_mag(ch1, 23.93)
+            ech1 = Cluster.percent_flux_errors_to_mag_errors(ech1/ch1)
+            if ch2 is not None:
+                ch2 = Cluster.flux_to_mag(ch2, 23.93)
+                ech2 = Cluster.percent_flux_errors_to_mag_errors(ech2/ch2)
+            # The color should already be correct.
+
+        # if we are missing either ch1 or the color, use the other info
+        # to find it
+        if ch1 is None and ch1mch2 is None:
+            raise IndexError("Either ch1 or the color must be specified "
+                             "in the parameter file.")
+        if ch1 is None:
+            ch1 = ch1mch2 + ch2
+            ech1 = math.sqrt(ech1mch2**2 - ech2**2)
+            # Yes, that is minus. That is because:
+            # e_ch1-ch2**2 = ech1**2 + ech2**2
+        if ch1mch2 is None:
+            ch1mch2 = ch1 - ch2
+            ech1mch2 = math.sqrt(ech1**2 + ech2**2)
+
+        # Convert to AB mags if needed
+        if params["mags"] == "vega":
+            ch1 = ch1 + 2.787
+            ch2 = ch2 + 3.260
+            ch1mch2 = ch1mch2 + 2.787 - 3.260
+
+        # # if errors aren't specified, make some arbitrary ones
+        # if ech1 is None:
+        #     ech1 = 0.05
+        # if ech2 is None:
+        #     ech2 = 0.05
+        # if ech1mch2 is None:
+        #     ech1mch2 = math.sqrt(ech1**2 + ech2**2)
+
+        # convert to type Data
+        data_ch1 = data.Data(ch1, ech1)
+        data_ch2 = data.Data(ch2, ech2)
+        data_ch1mch2 = data.Data(ch1mch2, ech1mch2)
+        return data_ch1, data_ch2, data_ch1mch2
+
+    def get_dist(self, params, split_line):
+        """Parse the line to get the distance from center.
+
+        :param params: Parameter dictionary that is passed all around the code.
+        :param split_line: Line of the catalog split into the components.
+        :return: The distance of the object from the cluster center.
+        """
+        if params["dist"] != "-99":
+            return split_line[int(params["dist"])]
+        else:
+            return None
+
+    def __init__(self, filepath, params):
+        self.name = Cluster._name(filepath, params["extension"])
 
         # I'll initialize emtpy source list, that will be filled as we go
         self.sources_list = []
@@ -110,15 +181,13 @@ class Cluster(object):
         self.flags = 0
 
         # then read in the objects in the catalog
-        self.read_new_irac(filepath)
-        # self.read_SPT(filepath)
+        self.read_catalog(filepath, params)
 
     @staticmethod
-    def _name(filepath):
+    def _name(filepath, extension):
         filename = os.path.split(filepath)[-1]
-        #TODO: parse the filename based on the format. I don't know what
-        # that will be at the moment.
-        return  filename.split(".")[0]
+        # just remove the extension from the filename
+        return filepath.rstrip(extension)
 
     def __repr__(self):
         return self.name
@@ -228,7 +297,7 @@ class Cluster(object):
 
         # now that we are all done, save the figures.
         save_as_one_pdf(figures, params["plot_directory"] +
-                                self.name.replace(" ", "_") + ".pdf")
+                                self.name + ".pdf")
 
     def _location_cut(self, radius):
         """
@@ -613,7 +682,6 @@ class Cluster(object):
                                                   source.ch2.error,
                                                   source.ch1_m_ch2.value,
                                                   source.ch1_m_ch2.error, rs))
-
 
 
 def save_as_one_pdf(figs, filename):

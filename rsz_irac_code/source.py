@@ -4,7 +4,7 @@ class Source(object):
     For this implementation, only holds data in ch1 and ch2, since that's
     all we need for this implementation.
     """
-    def __init__(self, ra, dec, ch1_mag, ch2_mag, dist):
+    def __init__(self, ra, dec, ch1_mag, ch2_mag, dist, ch1mch2=None):
         """
         Constructor. Pass in Data class objects for the magnitudes if you
         want to include errors.
@@ -16,13 +16,16 @@ class Source(object):
                         want to include errors.
         :param dist: distance of the galaxy from the overdensity center.
         """
-        self.ra = float(ra)
-        self.dec = float(dec)
+        self.ra = ra
+        self.dec = dec
         # Don't convert the magnitudes to floats, since they will be data
         # objects.
         self.ch1 = ch1_mag
         self.ch2 = ch2_mag
-        self.ch1_m_ch2 = self.ch1 - self.ch2
+        if ch1mch2 is not None:
+            self.ch1_m_ch2 = ch1mch2
+        else:
+            self.ch1_m_ch2 = self.ch1 - self.ch2
 
         self.dist = dist
 
