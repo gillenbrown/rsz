@@ -211,6 +211,8 @@ def location(cluster):
     ax.set_ylabel("dec")
     legend = ax.legend(loc=3)
     legend.get_frame().set_linewidth(0.5)
+    ax.get_xaxis().get_major_formatter().set_useOffset(False)
+    ax.get_yaxis().get_major_formatter().set_useOffset(False)
     # label the cluster name
     ax.text(0.02, 0.96, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="center",

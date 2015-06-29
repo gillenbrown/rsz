@@ -49,7 +49,7 @@ rs_catalog_dir = rs_catalogs/
 # - ech2: error in the flux or magnitude in channel 2
 # - ch1-ch2: channel 1 - channel 2 color. NOTE: This must be a magnitude!
 # - e_ch1-ch2: error in the ch1 - ch2 color.
-# - dist: distance of the object from the cluster center.
+# - dist: distance of the object from the cluster center in arcseconds.
 #
 # -----------------------------------------------------------------------------
 
@@ -63,7 +63,7 @@ ch2 = 13
 ech2 = 14
 ch1-ch2 = -99
 e_ch1-ch2 = -99
-dist = 19
+dist = -5
 
 # -----------    Plots   ------------------------------------------------------
 #

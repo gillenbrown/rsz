@@ -119,11 +119,11 @@ class Cluster(object):
 
         # Convert fluxes to magnitudes if need be
         if params["type"] == "flux":
-            ch1 = Cluster.flux_to_mag(ch1, 23.93)
             ech1 = Cluster.percent_flux_errors_to_mag_errors(ech1/ch1)
+            ch1 = Cluster.flux_to_mag(ch1, 23.93)
             if ch2 is not None:
-                ch2 = Cluster.flux_to_mag(ch2, 23.93)
                 ech2 = Cluster.percent_flux_errors_to_mag_errors(ech2/ch2)
+                ch2 = Cluster.flux_to_mag(ch2, 23.93)
             # The color should already be correct.
 
         # if we are missing either ch1 or the color, use the other info
@@ -140,19 +140,11 @@ class Cluster(object):
             ch1mch2 = ch1 - ch2
             ech1mch2 = math.sqrt(ech1**2 + ech2**2)
 
-        # Convert to AB mags if needed
-        if params["mags"] == "vega":
+        # Convert to AB mags if needed. If we used flux, they are already in AB
+        if params["type"] == "mag" and params["mags"] == "vega":
             ch1 = ch1 + 2.787
             ch2 = ch2 + 3.260
             ch1mch2 = ch1mch2 + 2.787 - 3.260
-
-        # # if errors aren't specified, make some arbitrary ones
-        # if ech1 is None:
-        #     ech1 = 0.05
-        # if ech2 is None:
-        #     ech2 = 0.05
-        # if ech1mch2 is None:
-        #     ech1mch2 = math.sqrt(ech1**2 + ech2**2)
 
         # convert to type Data
         data_ch1 = data.Data(ch1, ech1)
@@ -471,8 +463,6 @@ class Cluster(object):
 
         # get the model, it's characteristic magnitude, and then turn it
         # into magnitude limits bsed on the parameters passed in
-
-        print "RS members"
 
         RS_model = self.models[redshift]
         char_mag = RS_model.mag_point
