@@ -41,7 +41,7 @@ def parse_config():
     """Parse the config file, making a dictionary of parameters.
 
     Will use the user's specified param file if they specify one, and the
-    defauly param file ('rsz_irac.param') if not.
+    default param file ('rsz_irac.param') if not.
 
     :return: dictionary, with keys of parameter names, and values of the
              desired values for those parameters.
