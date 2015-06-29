@@ -4,9 +4,17 @@ import decimal
 import numpy as np
 import ezgal
 
+
 class _Slope(object):
     """
     Callable class used to calculate slopes of the red sequence.
+
+    There is probably an easier way to make all this work, but I couldn't
+    figure out the best way. Suggestions are definitely welcome.
+
+    It currently returns zero as the slope no matter what, but this can
+    easily be changed. To do this, have the slope(z) function return the
+    slope given an actual redshift. Everything will work from there.
     """
 
     def __init__(self):
@@ -20,20 +28,17 @@ class _Slope(object):
 
         # first we need to see at what redshift does ch1-ch2 see the various
         # Eisenhardt colors.
-        # I did this in an iPython notebook that is in the
-        # calculating_slopes folder, if you want to see the work. I'll just
-        # manually add the results here, to avoid unecessary computation
-        redshifts = [1, 2, 3]
-        slopes = [-0.1, -0.04, -0.08]
-        #TODO: These ^ are  made up! Find the actual ones.
 
-        # TODO: do some interpolating here to find the slope at any redshift
-        def f(z):
+        # Then do some interpolating here to find the slope at any redshift
+
+        def slope(z):
             # I'll assume zero slope for everything. This is wrong, but it's
-            # not too wrong to make the results totally wrong.
+            # not too wrong to make the results totally wrong. The parameter
+            # z is kept there to make it easy to implement some kind of
+            # correction that actually uses it.
             return 0
 
-        self.slope_function = f
+        self.slope_function = slope
 
     # I'll use a call method so I can call the object like a function to get
     #  the slope of the red sequence at the desired redshift.
@@ -46,8 +51,7 @@ class RSModel(object):
     Class storing data from the EzGal models.
     """
 
-
-    # get slopes for all redshifts
+    # get an object that can return the slope at any redshift
     slope = _Slope()
 
     @staticmethod
@@ -58,24 +62,30 @@ class RSModel(object):
         After comparing clusters with known
         redshifts to those produced by this program, this correction was
         devised to make this program return results more closely matching
-        the actual redshift. It's just an impirical correction to make the
+        the actual redshift. It's just an empirical correction to make the
         redshifts better.
 
-        :param z: uncorrected redshift
-        :return: corrected redshift
+        This correction was found by running the code on SPT clusters that
+        have spec or photo zs. The results were then compared, and a function
+        was found that makes the redshifts line up the best.
+
+        :param redshift: uncorrected redshift
+        :returr: corrected redshift
         """
-        # TODO: actually make this correction.
-        # TODO: make an iPython notebook documenting the way I found this
         # return redshift
-        # correction, once I actually do that.
-        fit = [ 1.09497851, -0.14801874]
+        # This is the fit, which is described by a linear relationship.
+        #  The first item is the slope, the second is the intercept.
+        #  If there were more items, they would go in descending power order.
+        fit = [1.09497851, -0.14801874]
         # turn to decimal , so it can play nice with redshifts, which are
         # of type decimal
         fit = [decimal.Decimal(i) for i in fit]
+        # Applying the correction is just plugging in the redshift to the
+        # correction polynomial. This is a complicated way to do that.
         corrected = sum([coeff * (redshift**i) for i, coeff in
                          enumerate(reversed(fit))])
+        # round and turn into type decimal, which is what redshifts need to be.
         return decimal.Decimal(str(round(corrected, 3)))
-
 
     def __init__(self, redshift, ch1_mag, ch2_mag):
         """
@@ -98,7 +108,7 @@ class RSModel(object):
         Calculate the color (ch1-ch2) of the red sequence at the given ch2
         magnitude.
 
-        :param ch1_mag: ch1 magnitude at which we want the color of the
+        :param ch2_mag: ch2 magnitude at which we want the color of the
                         red sequence
         :return: float value with the color of the red sequence
 
@@ -120,13 +130,14 @@ def model_dict(spacing):
 
     :param spacing: spacing of the redshifts at which the RS will be
     calculated.
-    :return:
+    :return: dictionary where the keys are the redshifts of the models, and
+             the values are the models themselves.
     """
 
-    # get the model
+    # get the EzGal model object
     model = _make_model()
 
-    #set the formation redshift and observed redshift
+    # decide the formation redshift and observed redshift
     zf = 3.0
     zs = np.arange(0.7, 1.700001, spacing)
 
@@ -134,7 +145,7 @@ def model_dict(spacing):
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,
                             z=0.023)
 
-    # Calculate the obserables we want in AB mags
+    # Calculate the observables we want in AB mags
     mags = model.get_apparent_mags(zf, filters=["ch1", "ch2"], zs=zs,
                                    ab=True)
 
@@ -147,6 +158,9 @@ def model_dict(spacing):
     # Decimal objects are used because they are not subject to floating
     # point errors, and still work in simple algebra. Having floating point
     # errors in dictionary keys is a bad thing.
+
+    # We don't do the correction here, so we only need to round to 2 digits.
+    # the correction is done later, and after it we will wants 3 digits.
     zs = [str(round(z, 2)) for z in zs]
     z_2_digits = []
     for z in zs:
@@ -157,15 +171,12 @@ def model_dict(spacing):
 
     for z, m in zip(decimal_zs, mags):
         ch1, ch2 = m  # split the magnitudes into ch1 and ch2
+        # The correction to the redshift is done when the RSModel
+        # object is initialized
         this_model = RSModel(z, ch1, ch2)
         rs_models[this_model.z] = this_model
 
     return rs_models
-
-
-
-
-
 
 
 def _make_model():
@@ -178,16 +189,15 @@ def _make_model():
     :return: EzGal object.
     """
 
-    evolved_model = "bc03_exp_0.1_z_0.02_chab_evolved_zf_3.0.model"
-    default_model = "bc03_exp_0.1_z_0.02_chab.model"
+    evolved_model_name = "bc03_exp_0.1_z_0.02_chab_evolved_zf_3.0.model"
+    default_model_name = "bc03_exp_0.1_z_0.02_chab.model"
 
     try:  # to open the evolved model
-        model = ezgal.ezgal(evolved_model)
+        model = ezgal.ezgal(evolved_model_name)
     except ValueError:  # the default model wasn't found
         try:  # to open the default model
-            model = ezgal.model(default_model)
-            _evolve_model(model,
-                          "bc03_exp_0.1_z_0.02_chab_evolved_zf_3.0.model" )
+            model = ezgal.model(default_model_name)
+            _evolve_model(model, savename=evolved_model_name)
 
         except ValueError:  # the default model doesn't exist
             raise ValueError("Please download the default model, which is "
