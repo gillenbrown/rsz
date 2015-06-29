@@ -187,7 +187,7 @@ class Cluster(object):
     def _name(filepath, extension):
         filename = os.path.split(filepath)[-1]
         # just remove the extension from the filename
-        return filepath.rstrip(extension)
+        return filename.rstrip(extension)
 
     def __repr__(self):
         return self.name

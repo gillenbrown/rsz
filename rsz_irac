@@ -126,11 +126,12 @@ def add_to_catalog(output_file, cluster):
     :param cluster:
     :return:
     """
-    line = '\n{:17s}{:<6f}{:<6f}{:<6f}{:<6}'.format(cluster.name.replace(" ", "_"),
-                                               cluster.z.value,
-                                               cluster.z.upper_error,
-                                               cluster.z.lower_error,
-                                               cluster.flags)
+    line = '\n{:17s}{:<6}{:<6}' \
+           '{:<6}{:<6}'.format(cluster.name.replace(" ", "_"),
+                                round(cluster.z.value, 2),
+                                round(cluster.z.upper_error, 2),
+                                round(cluster.z.lower_error, 2),
+                                cluster.flags)
     output_file.write(line)
 
 

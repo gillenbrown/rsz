@@ -160,13 +160,13 @@ def add_redshift(ax, redshift):
     if type(redshift) is data.AsymmetricData:
         # we need to enclose the value in braces so LaTeX can recognize them
         #  properly
-        value = "{" + str(redshift.value) + "}"
-        upper = "{+" + str(redshift.upper_error) + "}"
-        lower = "{\,-" + str(redshift.lower_error) + "}"
+        value = "{" + str(round(redshift.value, 2)) + "}"
+        upper = "{+" + str(round(redshift.upper_error, 2)) + "}"
+        lower = "{\,-" + str(round(redshift.lower_error, 2)) + "}"
         text = r"z=$\mathregular{{{value}^{upper}_{lower}}}$".format(
             value=value, upper=upper, lower=lower)
     else:
-        text = "z=" + str(redshift)
+        text = "z=" + str(round(redshift, 2))
 
 
     ax.text(0.97, 0.96, text, transform=ax.transAxes,
@@ -212,7 +212,7 @@ def location(cluster):
     legend = ax.legend(loc=3)
     legend.get_frame().set_linewidth(0.5)
     # label the cluster name
-    ax.text(0.02, 0.96, cluster.name, transform=ax.transAxes,
+    ax.text(0.02, 0.96, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
     ax.invert_xaxis()  # ra is backwards
