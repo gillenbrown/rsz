@@ -1,17 +1,17 @@
 #! /usr/bin/env python
-
-# TODO: make the catalog search function recursively find all files in each
-# subdirectory too.
+# ^ that line makes the code runnable from the command line without having
+# to call `python` beforehand.
 
 import os
 import sys
 
 from rsz_irac_code import cluster
 
-def abs_path(path):
-    """Makes and given path into an absolute path.
 
-    Works for paths that are already aboluste, paths which start with ~/ and
+def abs_path(path):
+    """Makes a given path into an absolute path.
+
+    Works for paths that are already absolute, paths which start with ~/ and
     . and .. as well as paths that are just a file or folder. All relative
     paths are assumed to be relative to the current working directory.
 
@@ -19,29 +19,32 @@ def abs_path(path):
     :return: string with the absolute path
     """
     if path.startswith("/"):
-        # is an absolute path, so we don't need to do anythin
+        # is an absolute path, so we don't need to do anything
         return path
     elif path.startswith("~/"):
         # is relative to home, which is easy.
         return os.path.expanduser(path)
-    elif path.startswith(".."):
-        above = (os.sep).join(os.getcwd().split(os.sep)[0:-1])
+    elif path.startswith("../"):  # parent directory
+        above = os.sep.join(os.getcwd().split(os.sep)[0:-1])
         # The 0:-1 is to get rid of the last path (our current directory),
         # which will give us the directory above
         return above + path[2:]  # get rid of ..
-    elif path.startswith("."):
+    elif path.startswith("./"):  # current directory
         return os.getcwd() + path[1:]  # get rid of .
-    elif path[0].isalnum():
+    elif path[0].isalnum():  # relative to current directory
         return os.getcwd() + os.sep + path
     else:
         raise ValueError("Path format not recognized.")
 
 
 def parse_config():
-    """Parse the config file, making a dictionary of parameters
+    """Parse the config file, making a dictionary of parameters.
+
+    Will use the user's specified param file if they specify one, and the
+    defauly param file ('rsz_irac.param') if not.
 
     :return: dictionary, with keys of parameter names, and values of the
-    desired values for those parameters.
+             desired values for those parameters.
     """
 
     # the user can pass in a parameter when calling the program from the
@@ -58,10 +61,10 @@ def parse_config():
         config_file = open("rsz_irac.param")
 
     # parse the file into a parameters dictionary
-    global params  # params needs to be available elsewhere
     params = dict()
     for line in config_file:
         if not line.startswith("#") and not line.isspace():
+            # first item is the parameter, second is =, and third is the input
             params[line.split()[0]] = line.split()[2]
     config_file.close()
 
@@ -84,18 +87,23 @@ def get_catalogs(parent_directory, extension):
              extension.
     """
     catalogs = []
+    # I'm not sure how this code works, to be honest.
     for dirpath, dirnames, filenames in os.walk(parent_directory):
         for filename in filenames:
             if filename.endswith(extension):
                 catalogs.append(os.path.join(dirpath, filename))
     return catalogs
 
-def start_output():
+
+def start_output(params):
     """Start the output file, and put the header in the file.
 
+    :param params: parameter dictionary
     :return: open file object pointing to the output file.
     """
     output_file = open(params["results_file"], "w")
+    # write the header, which looks really ugly in this format. It looks nice
+    # when printed, though, I promise.
     header = "# " + 20*"-" + 3*" " + "rsz_irac results" + 3*" " + 20*"-" + \
              "\n" + \
              "#\n" + \
@@ -120,47 +128,57 @@ def start_output():
     output_file.write(labels)
     return output_file
 
-def add_to_catalog(output_file, cluster):
-    """
 
-    :param cluster:
-    :return:
+def add_to_catalog(output_file, the_cluster):
+    """Add the data from a given cluster to the results file.
+
+    :param output_file: open file object where the results will be appended to.
+    :param the_cluster: Cluster to add results from.
+    :return: none, but the data from the cluster will be written to the file.
     """
     line = '\n{:17s}{:<6}{:<6}' \
-           '{:<6}{:<6}'.format(cluster.name.replace(" ", "_"),
-                                round(cluster.z.value, 2),
-                                round(cluster.z.upper_error, 2),
-                                round(cluster.z.lower_error, 2),
-                                cluster.flags)
+           '{:<6}{:<6}'.format(the_cluster.name.replace(" ", "_"),
+                               round(the_cluster.z.value, 2),
+                               round(the_cluster.z.upper_error, 2),
+                               round(the_cluster.z.lower_error, 2),
+                               the_cluster.flags)
     output_file.write(line)
 
 
 def main():
-    header =  "\n+" + 25*"-" + 6*" " + "rsz_irac" + 6*" " + 25*"-" + "+\n" +\
-              "|" + 70*" " + "|\n" + \
-              "|" + 5*" " + "Remember the clusters must be above z=0.7 for " \
-                            "this to work!" + 6*" " + "|\n" +\
-              "|" + 70*" " + "|\n" + \
-              "+" + 70*"-" + "+\n"
+    """Functionality that runs when the user calls it from the command line.
+
+    Prints the fancy headers, reads the parameter file, and finds all the
+    catalogs. It then calls the fitting procedure on each cluster, and writes
+    the results to the output file. It updates its progress as it goes.
+
+    :return: none, but many things are written to files, depending on what
+             the user specified in the parameter file.
+    """
+    # The header looks ugly here, but it is nice when printed.
+    header = "\n+" + 25*"-" + 6*" " + "rsz_irac" + 6*" " + 25*"-" + "+\n" +\
+             "|" + 70*" " + "|\n" + \
+             "|" + 5*" " + "Remember the clusters must be above z=0.7 for " \
+             "this to work!" + 6*" " + "|\n" +\
+             "|" + 70*" " + "|\n" + \
+             "+" + 70*"-" + "+\n"
     print header
     print "Reading parameter file..."
-    # parse the config file
+    # parse the config file, find the catalogs, and start the output
     params = parse_config()
-
     catalogs = get_catalogs(params["catalog_directory"], params["extension"])
-
-    # start the output file
-    output_file = start_output()
+    output_file = start_output(params)
 
     print "Starting redshift fitting..."
     # Use sys.stdout.write instead of print so I can get an updating progress.
     sys.stdout.write("0/{} clusters finished.".format(len(catalogs)))
     sys.stdout.flush()
 
+    # catalogs is a list of paths to catalogs. I start at one so that the
+    # count printed to the user isn't off by one.
     for i, cat_path in enumerate(catalogs, start=1):
+        # make the cluster, and fit the redshift
         cl = cluster.Cluster(cat_path, params)
-
-        # do the fitting procedure
         cl.fit_z(params)
 
         # if the user wants to make rs catalogs, do it
@@ -175,22 +193,12 @@ def main():
         sys.stdout.write("{}/{} clusters finished.".format(i, len(catalogs)))
         sys.stdout.flush()
 
-
-
     output_file.close()
 
-    print "\n"
+    print "\n"  # just to look nicer
 
-
-
+# if the user calls the code from the command line, we want it to run, while
+# still allowing the code to be imported and not immediately run. This
+# accomplishes that.
 if __name__ == "__main__":
     main()
-
-# TODO: actual slopes of the red sequence
-# TODO: What is the format of the catalogs I will get?
-# TODO: correction
-# TODO: make a readme that explains the science and workings behind the code
-# TODO: make a .txt file documenting how to run the code.
-# TODO: add liscense?
-
-# TODO: make the name be just the filename stripped of the extension.

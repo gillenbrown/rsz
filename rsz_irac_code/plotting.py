@@ -1,11 +1,10 @@
-import model
-import data
-
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
 import numpy as np
 
+import model
+import data
 
 
 def cmd(cluster):

@@ -1,7 +1,8 @@
-import ezgal
 import os
-import numpy as np
 import decimal
+
+import numpy as np
+import ezgal
 
 class _Slope(object):
     """
