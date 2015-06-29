@@ -1,6 +1,0 @@
-# Ignore everything in this directory
-*
-# Except this file
-!.gitignore
-
-# I want this empty so I don’t have to see the changed plots each time I commit.

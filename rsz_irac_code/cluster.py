@@ -261,6 +261,10 @@ class Cluster(object):
                 plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
+
+        # check the signifigance
+        self._significance()
+
         # Set the final red sequence members
         self._set_RS_membership(self.z.value, .2, .2, 2.0, 0.6)
         # and do the location check based on these RS values
@@ -288,12 +292,6 @@ class Cluster(object):
             fig, ax = plotting.location(self)
             plotting.add_redshift(ax, self.z)
             figures.append(fig)
-
-
-
-        self._significance()
-
-
 
         # now that we are all done, save the figures.
         save_as_one_pdf(figures, params["plot_directory"] +
@@ -473,6 +471,9 @@ class Cluster(object):
 
         # get the model, it's characteristic magnitude, and then turn it
         # into magnitude limits bsed on the parameters passed in
+
+        print "RS members"
+
         RS_model = self.models[redshift]
         char_mag = RS_model.mag_point
         dim_mag = char_mag + dimmer
