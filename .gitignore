@@ -1,2 +1,13 @@
 # Pycharm stuff
 .idea/
+
+cycle9/
+all_madcows/
+MaDCoWS_test/
+SPT/
+example/plots/*
+example/rs_catalogs/*
+example/results.txt
+*.pyc
+
+correction/
