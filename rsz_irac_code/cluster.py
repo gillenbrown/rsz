@@ -477,7 +477,7 @@ class Cluster(object):
             red_color = char_color + redder
             blue_color = char_color - bluer
             # a function in the source class does the actual marking
-            source.RS_membership(blue_color, red_color, bright_mag, dim_mag)
+            source.rs_membership(blue_color, red_color, bright_mag, dim_mag)
 
     def _chi_square_w_error(self):
         """Does chi-squared fitting, and returns the best fit value and the

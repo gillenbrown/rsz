@@ -17,14 +17,15 @@ def cmd(cluster):
     """
 
     # throw out a few sources that don't need to be plotted.
-    valid_sources = [source for source in cluster.sources_list if (
-            source.near_center and (source.ch1 - source.ch2).error < 5.0)]
+    valid_sources = [source for source in cluster.sources_list if
+                     source.near_center and
+                     (source.ch1 - source.ch2).error < 5.0]
 
     # set up the plot
-    fig, ax = plt.subplots(figsize=(9,6))
+    fig, ax = plt.subplots(figsize=(9, 6))
 
     # plot points one by one, so I don't have to make long lists for each
-    # thing I want to plot. This is simpler
+    # thing I want to plot. This is simpler, since I would need 6 lists.
     for source in valid_sources:
         mag = source.ch2.value
         color = source.ch1_m_ch2
@@ -52,26 +53,26 @@ def cmd(cluster):
     return fig, ax
 
 
-
-
 def add_vega_labels(ax):
-    """
+    """ Adds labels with magnitudes in Vega to the CMD.
 
-    :param ax:
-    :return:
+    :param ax: axis to add Vega mags to
+    :return: y axis, x axis that vega labels were added to. This is needed if
+             you want to add more stuff to the plot later.
     """
-     # move ticks left and bottom, since we want Vega ticks on right
+    # move ticks left and bottom, since we want Vega ticks on right and top
     ax.xaxis.tick_bottom()
     ax.yaxis.tick_left()
 
-    # put Vega mags/colors on the top and right
+    # record conversion factors
     # ch1: Vega - AB = -2.787
     ab_v_1 = -2.787
     # ch2: Vega - AB = -3.260
     ab_v_2 = -3.260
-    # to do this, we need to make a second axis
+    # we need to make a second axis
     vega_color_ax = ax.twinx()
     vega_mag_ax = ax.twiny()
+    # set limits and label the new axis, using Vega mags.
     vega_mag_ax.set_xlim(18 + ab_v_2, 23 + ab_v_2)
     vega_color_ax.set_ylim(-1 + (ab_v_1 - ab_v_2), 0.5 + (ab_v_1 - ab_v_2))
     vega_mag_ax.set_xlabel("ch2  [Vega]")
@@ -92,20 +93,22 @@ def add_all_models(fig, ax, steal_axs):
     meaningless on any other plot.
 
     :param fig: Figure containing the plots.
-    :param ax: CMD axis the models will be drawn onto. The colorbar will
-               also steal room from this axis.
+    :param ax: CMD axis the models will be drawn onto.
+    :param steal_axs: List of axes that will be resized to make room for the
+                      colorbar. If you made labels in Vega, those axes will
+                      need to be passed to this too.
     :return: none, but fig and ax are modified by adding the models and
-            colorbar.
+             colorbar, as well as resizing the axes in steal_axs.
     """
 
-    # get the model predictions
+    # get the model predictions, with fairly large spacing.
     models = model.model_dict(0.05)
 
     # set the colormap, so we can color code lines by redshift
     spectral = plt.get_cmap("RdYlBu_r")
     # some other decent colormaps: coolwarm, bwr, jet, RdBu_r, RdYlBu_r,
     # Spectral_r, rainbow
-    #normalize the colormap
+    # normalize the colormap
     c_norm = mplcol.Normalize(vmin=np.float64(min(models)),
                               vmax=np.float64(max(models)))
     scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=spectral)
@@ -117,31 +120,31 @@ def add_all_models(fig, ax, steal_axs):
         add_one_model(ax, models[z], color_val)
 
     # add the colorbar
-    scalar_map.set_array([]) # Don't know what this does
+    scalar_map.set_array([])  # Don't know what this does
     cb = fig.colorbar(mappable=scalar_map, ax=steal_axs, pad=0.15,
                       fraction=0.05, anchor=(1.0, 1.0))
     cb.set_label("Redshift")
     cb.set_ticks(np.arange(0, 3, 0.1))
 
 
-def add_one_model(ax, model, color):
+def add_one_model(ax, rs_model, color):
     """
     Adds one model to the axis.
 
     Ax should be generated with the cmd function.
 
     :param ax: axis on which to plot the model
-    :param model: model to plot on the axis
+    :param rs_model: model to plot on the axis
     :return: none, but ax will be modified
     """
     # make two points in the line for this RS
     ch2s = [10, 30]
-    colors = [model.rs_color(ch2) for ch2 in ch2s]
+    colors = [rs_model.rs_color(ch2) for ch2 in ch2s]
     # plot that line
     ax.plot(ch2s, colors, color=color, linewidth=0.5, zorder=0)
 
-    # also plot the points that corresponding to L*
-    ax.scatter(model.mag_point, model.color_point, c=color,
+    # also plot the points that correspond to L*
+    ax.scatter(rs_model.mag_point, rs_model.color_point, c=color,
                s=30, linewidth=0, zorder=0)
 
 
@@ -150,24 +153,29 @@ def add_redshift(ax, redshift):
 
     Can be either just a value or one with errors, too.
 
-    :param ax: axis to put the redshift of.
+    :param ax: axis to put the redshift on.
     :param redshift: redshift to be put in the corner. Can be either a
-                    single float of a data object.
+                     single float or a data object.
     :return: None, but the redshift will be added in a box in the upper
-    right corner of ax.
+             right corner of ax.
     """
     if type(redshift) is data.AsymmetricData:
+        # If it's a data, we need to mention the errors. We'll format that
+        # nicely using LaTeX
         # we need to enclose the value in braces so LaTeX can recognize them
         #  properly
         value = "{" + str(round(redshift.value, 2)) + "}"
         upper = "{+" + str(round(redshift.upper_error, 2)) + "}"
         lower = "{\,-" + str(round(redshift.lower_error, 2)) + "}"
+        # format this in a format LaTeX can parse. Use mathregular so that the
+        # font is the same as all the other fonts on the plot.
         text = r"z=$\mathregular{{{value}^{upper}_{lower}}}$".format(
             value=value, upper=upper, lower=lower)
     else:
+        # if it's not an error, we just need the value.
         text = "z=" + str(round(redshift, 2))
 
-
+    # put the redshift on the plot
     ax.text(0.97, 0.96, text, transform=ax.transAxes,
             horizontalalignment="right", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
@@ -185,7 +193,7 @@ def location(cluster):
     :return: fig, ax of the plot
     """
 
-    fig, ax = plt.subplots(figsize=(9,8), tight_layout=True)
+    fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
     rs_member_ra, rs_member_dec = [], []
     center_ra, center_dec = [], []
     rest_ra, rest_dec = [], []
@@ -210,6 +218,8 @@ def location(cluster):
     ax.set_ylabel("dec")
     legend = ax.legend(loc=3)
     legend.get_frame().set_linewidth(0.5)
+    # stop Matplotlib from making the axis have a weird offset, which is hard
+    # to understand.
     ax.get_xaxis().get_major_formatter().set_useOffset(False)
     ax.get_yaxis().get_major_formatter().set_useOffset(False)
     # label the cluster name
