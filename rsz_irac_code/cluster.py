@@ -1,41 +1,73 @@
 import os
 import math
 
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
+
 import model
-import source
+from source import Source
 import data
 import plotting
 
+
 class Cluster(object):
+    """
+    Class that holds the data about a cluster, and that does the redshift
+    fitting.
+    """
+
     # Keeping the predictions for the red sequence with the cluster object
     # made things a lot easier. And since the predictions are the same for
     # all cluster, this is a class variable rather than an instance variable.
     models = model.model_dict(0.01)
 
-    @staticmethod
-    def flux_to_mag(flux, zeropoint):
-        """Convert flux to magnitude with the given zeropoint.
+    def __init__(self, filepath, params):
+        self.name = self._name(filepath, params["extension"])
 
-        :param flux: flux in whatever units. Choose your zeropoint correctly
-                     to make this work with the units flux is in.
-        :param zeropoint: zeropoint of the system (in mags)
-        :return: magnitude that corresponds to the given flux
-        """
-        if flux < 0:
-            return -99
-        return -2.5 * math.log10(flux) + zeropoint
+        # I'll initialize empty source list, that will be filled as we go
+        self.sources_list = []
+        self.z = None
+        self.flags = 0
+
+        # then read in the objects in the catalog
+        self.read_catalog(filepath, params)
 
     @staticmethod
-    def percent_flux_errors_to_mag_errors(percent_flux_error):
-        """Converts a percentage flux error into a magnitude error.
+    def _name(filepath, extension):
+        filename = os.path.split(filepath)[-1]
+        # just remove the extension from the filename
+        return filename.rstrip(extension)
 
-        m = -2.5 log10(F) + C
-        dm = -2.5/(ln(10)) dF/F
+    def read_catalog(self, filepath, params):
+        """ Read the catalog, parsing things into sources.
 
-        :param percent_flux_error: percentage flux error
-        :return: magnitude error corresponding to the percentage flux error.
+        This function calls other functions to do the dirty work.
+
+        :param filepath: path of the catalog to be parsed.
+        :param params: parameter dictionary
+        :return: none, but the cluster's source list variable is populated.
         """
-        return (2.5 / math.log(10, math.e)) * percent_flux_error
+        with open(filepath) as cat:
+            for line in cat:
+                # some catalog formats aren't formatted the way I'd like (the
+                # column headers aren't commented out), so ignore that line.
+                if not line.startswith("#") and \
+                        not line.strip().startswith("id"):
+                    # split the line, to make for easier parsing.
+                    split_line = [self.to_float(i) for i in line.split()]
+
+                    # get the various things from the parser functions.
+                    ra, dec = self.get_ra_dec(params, split_line)
+                    ch1, ch2, ch1mch2 = self.get_mags(params, split_line)
+                    dist = self.get_dist(params, split_line)
+
+                    # check that the user has specified the appropriate things.
+                    if ra is None and dec is None and dist is None:
+                        raise TypeError("Specify one of either ra/dec or dist")
+
+                    # turn this info into a source object, then add it.
+                    this_source = Source(ra, dec, ch1, ch2,  dist, ch1mch2)
+                    self.sources_list.append(this_source)
 
     @staticmethod
     def to_float(item):
@@ -43,38 +75,18 @@ class Cluster(object):
         will be returned unchanged.
 
         :param item: Item to potentially convert to a float.
-        :return: the item, potentially converted to a float
+        :return: the item, potentially converted to a float.
         """
         try:
             return float(item)
         except ValueError:  # That's the error from a failed float conversion.
             return item
 
-    def read_catalog(self, filepath, params):
-        """
+    @staticmethod
+    def get_ra_dec(params, split_line):
+        """Parses the line to get the ra and dec.
 
-        :param filepath:
-        :return:
-        """
-        with open(filepath) as cat:
-            for line in cat:
-                if not line.startswith("#") and not line.strip().startswith("id"):
-                    split_line = [Cluster.to_float(i) for i in line.split()]
-
-                    ra, dec = self.get_ra_dec(params, split_line)
-                    ch1, ch2, ch1mch2 = self.get_mags(params, split_line)
-                    dist = self.get_dist(params, split_line)
-
-                    if ra is None and dec is None and dist is None:
-                        raise TypeError("Specify one of either ra/dec or dist")
-
-                    # turn this info into a source object, then add it.
-                    this_source = source.Source(ra, dec, ch1, ch2,
-                                                dist, ch1mch2)
-                    self.sources_list.append(this_source)
-
-    def get_ra_dec(self, params, split_line):
-        """Parses the line to get the ra and dec
+        If the user doesn't specify ra and dec, then return None.
 
         :param params: Parameter dictionary that is passed all around the code.
         :param split_line: Line of the catalog split into the components.
@@ -87,7 +99,8 @@ class Cluster(object):
             ra, dec = None, None
         return ra, dec
 
-    def get_mags(self, params, split_line):
+    @staticmethod
+    def get_mags(params, split_line):
         """ Parses the config file to get the magnitudes.
 
         :param params: Parameter dictionary that is passed all around the code.
@@ -102,14 +115,17 @@ class Cluster(object):
                             "in the parameter file.")
 
         # get the data that is in those columns, whether it is mags or flux
+        # ch2 is required, but the other stuff isn't.
         ch2 = split_line[int(params["ch2"])]
         ech2 = split_line[int(params["ech2"])]
+
         if params["ch1"] != "-99":
             ch1 = split_line[int(params["ch1"])]
             ech1 = split_line[int(params["ech1"])]
         else:
             ch1 = None
             ech1 = None
+
         if params["ch1-ch2"] != "-99":
             ch1mch2 = split_line[int(params["ch1-ch2"])]
             ech1mch2 = split_line[int(params["e_ch1-ch2"])]
@@ -142,8 +158,8 @@ class Cluster(object):
 
         # Convert to AB mags if needed. If we used flux, they are already in AB
         if params["type"] == "mag" and params["mags"] == "vega":
-            ch1 = ch1 + 2.787
-            ch2 = ch2 + 3.260
+            ch1 += 2.787
+            ch2 += 3.260
             ch1mch2 = ch1mch2 + 2.787 - 3.260
 
         # convert to type Data
@@ -152,7 +168,8 @@ class Cluster(object):
         data_ch1mch2 = data.Data(ch1mch2, ech1mch2)
         return data_ch1, data_ch2, data_ch1mch2
 
-    def get_dist(self, params, split_line):
+    @staticmethod
+    def get_dist(params, split_line):
         """Parse the line to get the distance from center.
 
         :param params: Parameter dictionary that is passed all around the code.
@@ -164,22 +181,31 @@ class Cluster(object):
         else:
             return None
 
-    def __init__(self, filepath, params):
-        self.name = Cluster._name(filepath, params["extension"])
+    @staticmethod
+    def flux_to_mag(flux, zeropoint):
+        """Convert flux to magnitude with the given zeropoint.
 
-        # I'll initialize emtpy source list, that will be filled as we go
-        self.sources_list = []
-        self.z = None
-        self.flags = 0
-
-        # then read in the objects in the catalog
-        self.read_catalog(filepath, params)
+        :param flux: flux in whatever units. Choose your zeropoint correctly
+                     to make this work with the units flux is in.
+        :param zeropoint: zeropoint of the system (in mags).
+        :return: magnitude that corresponds to the given flux. If flux is
+                 negative, -99 is returned.
+        """
+        if flux < 0:
+            return -99
+        return -2.5 * math.log10(flux) + zeropoint
 
     @staticmethod
-    def _name(filepath, extension):
-        filename = os.path.split(filepath)[-1]
-        # just remove the extension from the filename
-        return filename.rstrip(extension)
+    def percent_flux_errors_to_mag_errors(percent_flux_error):
+        """Converts a percentage flux error into a magnitude error.
+
+        m = -2.5 log10(F) + C
+        dm = -2.5/(ln(10)) dF/F
+
+        :param percent_flux_error: percentage flux error
+        :return: magnitude error corresponding to the percentage flux error.
+        """
+        return (2.5 / math.log(10, math.e)) * percent_flux_error
 
     def __repr__(self):
         return self.name
@@ -193,8 +219,8 @@ class Cluster(object):
         :param params: Dictionary full of the user's parameters for the
                        program from the config file.
         :return: redshift of the cluster. Will be an AsymmetricData
-        instance, to account for the possibility of different upper and
-        lower limits on the redshift.
+                 instance, to account for the possibility of different upper
+                 and lower limits on the redshift.
         """
 
         # initialize a list of figures, that will be filled as we go along.
@@ -208,17 +234,17 @@ class Cluster(object):
         if params["CMD"] == "1":
             fig, ax = plotting.cmd(self)
             vc_ax, vmax = plotting.add_vega_labels(ax)
-            plotting.add_all_models(fig, ax, [ax, vc_ax, vmax])
+            plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax])
             figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
         # point.
         self.z = self._initial_z()
 
-        # If the user wants to see this initial, fit, plot it.
+        # If the user wants to see this initial fit, plot it.
         if params["fitting_procedure"] == "1":
             fig, ax = plotting.cmd(self)
-            vc_ax, vmax = plotting.add_vega_labels(ax)
+            plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value], "k")
             plotting.add_redshift(ax, self.z.value)
             figures.append(fig)
@@ -227,38 +253,34 @@ class Cluster(object):
         # the fit of the red sequence
         bluer_color_cut = [0.3, 0.2]
         redder_color_cut = [0.3, 0.2]
-        # the bluer color cut is smaller than the red color cut to try to
-        # throw away foregrounds. If too many foregrounds are included,
-        # they drag the redshift down, since those foregrounds typically
-        # have lower error, which biases the fit. That isn't a problem with
-        # objects redder than the RS.
         brighter_mag_cut = 2.5
         dimmer_mag_cut = 0.0
 
-        # do three iterations of fitting, each with a progressively smaller
+        # do iterations of fitting, each with a progressively smaller
         # color cut, which is designed to hone in on the red sequence.
         for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
             # set red sequence members based on the cuts
-            self._set_RS_membership(self.z.value, bluer_cut,
+            self._set_rs_membership(self.z.value, bluer_cut,
                                     redder_cut, brighter_mag_cut,
                                     dimmer_mag_cut)
 
+            # do the chi-squared fitting.
             self.z = self._chi_square_w_error()
 
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
                 fig, ax = plotting.cmd(self)
-                vc_ax, vmax = plotting.add_vega_labels(ax)
+                plotting.add_vega_labels(ax)
                 plotting.add_one_model(ax, self.models[self.z.value], "k")
                 plotting.add_redshift(ax, self.z.value)
                 figures.append(fig)
 
-
-        # check the signifigance
-        self._significance()
+        # See if there is a cloud, rather than a red sequence.
+        self._clean_rs_check()
 
         # Set the final red sequence members
-        self._set_RS_membership(self.z.value, .2, .2, 2.0, 0.6)
+        self._set_rs_membership(self.z.value, .25, .25, 2.0, 0.6)
+
         # and do the location check based on these RS values
         self._location_check()
 
@@ -266,7 +288,7 @@ class Cluster(object):
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
             fig, ax = plotting.cmd(self)
-            vc_ax, vmax = plotting.add_vega_labels(ax)
+            plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value], "k")
             # I want to plot both the low and high models, so get those zs
             high_z = self.z.value + self.z.upper_error
@@ -278,7 +300,6 @@ class Cluster(object):
 
             figures.append(fig)
 
-
         # If the user wants, plot the location of the cluster and RS members.
         if params["location"] == "1":
             fig, ax = plotting.location(self)
@@ -287,7 +308,7 @@ class Cluster(object):
 
         # now that we are all done, save the figures.
         save_as_one_pdf(figures, params["plot_directory"] +
-                                self.name + ".pdf")
+                        self.name + ".pdf")
 
     def _location_cut(self, radius):
         """
@@ -301,12 +322,13 @@ class Cluster(object):
         including the densest part of the cluster, and throwing out most
         foregrounds.
 
-        The radius cut is done from the center of the image, which isn't
-        necessarily where the galaxies are most dense.
+        The radius cut is done using distance from the overdensity center, if
+        that was included in the catalog, or distance from the center of the
+        image.
 
         :param radius: radius of the cut, in arcminutes.
         :return: None, but galaxies near the center are marked as having
-        near_center = True.
+                 near_center = True.
         """
 
         ras = [source.ra for source in self.sources_list]
@@ -316,15 +338,13 @@ class Cluster(object):
         middle_dec = (max(decs) + min(decs)) / 2.0
 
         for source in self.sources_list:
-
-
             if source.dist is None:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
                 source.dist = math.sqrt((source.ra - middle_ra)**2 +
                                         (source.dec - middle_dec)**2) * 3600
 
-            if source.dist < radius*60.0: # convert radius to arcsec
+            if source.dist < radius*60.0:  # convert radius to arcsec
                 source.near_center = True
             else:
                 source.near_center = False
@@ -361,10 +381,10 @@ class Cluster(object):
             for source in self.sources_list:
                 if source.near_center:
                     # get the expected RS color for a galaxy of this magnitude
-                    color_point = this_model.rs_color(source.ch2.value)
+                    color = this_model.rs_color(source.ch2.value)
                     # see if it passes a color and magnitude cut
                     if (mag_point - 2.0 < source.ch2 < mag_point) and \
-                       (color_point - 0.1 < source.ch1_m_ch2 < color_point + 0.1):
+                       (color - 0.1 < source.ch1_m_ch2 < color + 0.1):
                         # if it did pass, note that it is nearby
                         nearby += 1
 
@@ -375,12 +395,12 @@ class Cluster(object):
                 best_z = z
 
         redshifts, nearbies = zip(*z_nearby_pairs)
-        # fig, ax = plt.subplots()
-        # ax.plot(redshifts, nearbies, marker=".", markersize=30)
+
         # check for the double red sequence
         self._double_red_sequence(nearbies)
 
-        # Turn this into a data object, with errors that span the maximum range
+        # Turn this into a data object, with errors that span the maximum
+        # range, since we don't have a good feeling yet
         up_error = sorted(models.keys())[-1] - best_z
         low_error = best_z - sorted(models.keys())[0]
         z = data.AsymmetricData(best_z, up_error, low_error)
@@ -406,7 +426,7 @@ class Cluster(object):
         # index.
         idx = 3
         # we can't go past the 4th to last item.
-        while 3<= idx <= len(nearby) - 4:
+        while 3 <= idx <= len(nearby) - 4:
             item = nearby[idx]
             # compare it to its three neighbors on each side.
             if item > nearby[idx-3] and item > nearby[idx-2] and \
@@ -424,7 +444,7 @@ class Cluster(object):
         if num_local_maxima >= 2:
             self.flags += 2
 
-    def _set_RS_membership(self, redshift, bluer, redder, brighter, dimmer):
+    def _set_rs_membership(self, redshift, bluer, redder, brighter, dimmer):
         """Set some sources to be RS members, based on color and mag cuts.
 
         :param redshift: redshift of the red sequence that these sources
@@ -464,15 +484,15 @@ class Cluster(object):
         # get the model, it's characteristic magnitude, and then turn it
         # into magnitude limits bsed on the parameters passed in
 
-        RS_model = self.models[redshift]
-        char_mag = RS_model.mag_point
+        rs_model = self.models[redshift]
+        char_mag = rs_model.mag_point
         dim_mag = char_mag + dimmer
         bright_mag = char_mag - brighter
 
         for source in self.sources_list:
-            #get the color correspoinding to the red sequence at the ch2
+            # get the color correspoinding to the red sequence at the ch2
             # magnitude of this particular source
-            char_color = RS_model.rs_color(source.ch2.value)
+            char_color = rs_model.rs_color(source.ch2.value)
             # turn it into color limits based on parameters passed in
             red_color = char_color + redder
             blue_color = char_color - bluer
@@ -496,8 +516,10 @@ class Cluster(object):
         to_fit = [source for source in self.sources_list if source.RS_member
                   and source.near_center]
 
+        # if there isn't anything to fit to, keep the initial z
         if len(to_fit) == 0:
             return self.z
+
         # initialize lists for the chi squared distribution and the redshifts
         chi_sq_values = []
         redshifts = []
@@ -507,33 +529,33 @@ class Cluster(object):
             chi_sq = 0  # reset the chi squared value for this model
             this_model = self.models[z]
             for source in to_fit:
+                # get the model points, then compare that with the data
                 model_color = this_model.rs_color(source.ch2.value)
                 color = source.ch1_m_ch2.value
                 error = source.ch1_m_ch2.error
                 chi_sq += ((model_color - color)/error)**2
 
-            #reduce the chi square values
+            # reduce the chi square values
             chi_sq /= len(to_fit)
             # put these values into the lists, so we can keep track of them
             chi_sq_values.append(chi_sq)
             redshifts.append(z)
 
+        # get the minimum chi squared value, and it's index in the list.
         best_chi = min(chi_sq_values)
         best_chi_index = chi_sq_values.index(best_chi)
 
+        # Start finding errors, using the chi squared distribution. Where it's
+        # one greater than the best chi, that's where the error is.
         high_idx = best_chi_index
         # find the place where the chi value is one greater than the best
         while high_idx < len(chi_sq_values) - 1 and \
-              chi_sq_values[high_idx] - best_chi < 1.0:
+                chi_sq_values[high_idx] - best_chi < 1.0:
             # Note: len(chi_sq_values) - 1 needs that -1 so that we don't
             # end up with an high_idx that is past the end of chi_sq_values
             high_idx += 1
         # high_idx will now point to the first value where the chi squared
         # value is one greater than the best fit value.
-
-        # TODO: should I do some interpolation here to find the place
-        # where it is exactly one, or just go with this? I'll go with it
-        #  for now, but I need to decide.
 
         # do the same thing for the low error
         low_idx = best_chi_index
@@ -554,7 +576,7 @@ class Cluster(object):
         return data.AsymmetricData(best_z, high_error, low_error)
         # TODO: that was a long function. Break it up somehow?
 
-    def _significance(self):
+    def _clean_rs_check(self):
         """ Determine whether or not there is a clean red sequence.
 
         This works by counting the number of red sequence galaxies of the best
@@ -573,7 +595,7 @@ class Cluster(object):
         brighter = 2.5
         dimmer = 0.0
         # set the red sequence members for the accepted red sequence.
-        self._set_RS_membership(self.z.value, bluer=bluer, redder=redder,
+        self._set_rs_membership(self.z.value, bluer=bluer, redder=redder,
                                 brighter=brighter, dimmer=dimmer)
         # count the RS members in the best fit
         best_rs = self._count_galaxies()
@@ -582,14 +604,14 @@ class Cluster(object):
         # the best fit. It's weird that we subtract from bluer and add to
         # redder, but if you think of making it less blue and more red you can
         # convince yourself.
-        self._set_RS_membership(self.z.value, bluer=bluer-0.3,
+        self._set_rs_membership(self.z.value, bluer=bluer-0.3,
                                 redder=redder+0.3, brighter=brighter,
                                 dimmer=dimmer)
         # again count the galaxies in this red sequence
         red_rs = self._count_galaxies()
 
         # set red sequenc members to be a bluer red sequence
-        self._set_RS_membership(self.z.value, bluer=bluer+0.3,
+        self._set_rs_membership(self.z.value, bluer=bluer+0.3,
                                 redder=redder-0.3, brighter=brighter,
                                 dimmer=dimmer)
         blue_rs = self._count_galaxies()
@@ -597,7 +619,7 @@ class Cluster(object):
         # Compare the numbers in the 3 red sequences. Set the flag if the
         # number of galaxies in the best red sequence is less than twice
         # the sum of the two offset red sequences. The 2 times is arbitrary.
-        # It was chosen to make things I
+        # It was chosen to make things I thought looked bad have this flag.
         if ((red_rs + blue_rs) * 2.0) >= best_rs:
             self.flags += 4
 
@@ -629,14 +651,17 @@ class Cluster(object):
         # to floats to avoid the rounding that comes from dividing integers
         # in Python 2.x
         total_near_center = float(len([source for source in self.sources_list
-                             if source.near_center]))
+                                       if source.near_center]))
         rs_near_center = float(len([source for source in self.sources_list
-                          if source.near_center and source.RS_member]))
+                                    if source.near_center and
+                                    source.RS_member]))
 
         total_not_near_center = float(len([source for source in
-                                 self.sources_list if not source.near_center]))
+                                           self.sources_list if
+                                           not source.near_center]))
         rs_not_near_center = float(len([source for source in self.sources_list
-                              if not source.near_center and source.RS_member]))
+                                        if not source.near_center and
+                                        source.RS_member]))
 
         # Calculate the percent of sources that are red sequence members both
         # near and far from the center.
@@ -654,6 +679,7 @@ class Cluster(object):
         :returns: none, but the catalog is saved to disk.
         """
         with open(filepath, "w") as cat:
+            # I want the headers to line up over the data
             header = "# {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
                      "{:10s} {:2s}\n".format("ra", "dec", "ch1", "ech1",
                                              "ch2", "ech2", "ch1-ch2",
@@ -666,13 +692,15 @@ class Cluster(object):
                 else:
                     rs = 0
                 cat.write("{:10f} {:10f} {:10f} {:10f} {:10f} {:10f} {:10f} "
-                          "{:10f} {:2d}\n".format(source.ra, source.dec,
+                          "{:10f} {:2d}\n".format(source.ra,
+                                                  source.dec,
                                                   source.ch1.value,
                                                   source.ch1.error,
                                                   source.ch2.value,
                                                   source.ch2.error,
                                                   source.ch1_m_ch2.value,
-                                                  source.ch1_m_ch2.error, rs))
+                                                  source.ch1_m_ch2.error,
+                                                  rs))
 
 
 def save_as_one_pdf(figs, filename):
@@ -683,10 +711,6 @@ def save_as_one_pdf(figs, filename):
     :param filename: place where the PDFs will be saved
     :return: none
     """
-    from matplotlib.backends.backend_pdf import PdfPages
-    import matplotlib.pyplot as plt
-    # TODO: move these imports to the top of whatever file this function
-    # ends up in
 
     # Save the pdfs as one file
     pp = PdfPages(filename)
