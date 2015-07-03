@@ -1,14 +1,11 @@
 # Pycharm stuff
 .idea/
 
-calculating_slopes/
-cycle9/
-all_madcows/
-MaDCoWS_test/
-SPT/
-example/plots/*
-example/rs_catalogs/*
-example/results.txt
+*/calculating_slopes/
+*/MaDCoWS_test/
+*/SPT/
+*/example/plots/*.pdf
+*/example/rs_catalogs/*.cat
+*/example/results.txt
 *.pyc
-
-correction/
+*/correction/
