@@ -117,11 +117,11 @@ class Cluster(object):
         # get the data that is in those columns, whether it is mags or flux
         # ch2 is required, but the other stuff isn't.
         ch2 = split_line[int(params["ch2"])]
-        ech2 = split_line[int(params["ech2"])]
+        ech2 = split_line[int(params["e_ch2"])]
 
         if params["ch1"] != "-99":
             ch1 = split_line[int(params["ch1"])]
-            ech1 = split_line[int(params["ech1"])]
+            ech1 = split_line[int(params["e_ch1"])]
         else:
             ch1 = None
             ech1 = None
