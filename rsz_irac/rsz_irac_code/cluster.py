@@ -279,7 +279,7 @@ class Cluster(object):
         self._clean_rs_check()
 
         # Set the final red sequence members
-        self._set_rs_membership(self.z.value, .25, .25, 2.0, 0.6)
+        self._set_rs_membership(self.z.value, .2, .2, 2.0, 0.6)
 
         # and do the location check based on these RS values
         self._location_check()
