@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
 import numpy as np
+try:
+    import prettyplot
+except ImportError:
+    pass
 
 import model
 import data
