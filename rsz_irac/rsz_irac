@@ -127,6 +127,8 @@ def start_output(params):
              "#            maxima in the likelihood of redshift.\n" + \
              "#         4: Indistinct red sequence. The red sequence\n" + \
              "#            isn't clean.\n" + \
+             "#         8: User flag. If the code runs in interactive mode" + \
+             "#            the user can flag clusters as bad." + \
              "#\n" + \
              "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
@@ -197,7 +199,7 @@ def main():
 
         # update progress
         sys.stdout.write("\r")  # go back to the beginning of the line
-        sys.stdout.write("{}/{} clusters finished.".format(i, len(catalogs)))
+        sys.stdout.write("{}/{} clusters finished. ".format(i, len(catalogs)))
         sys.stdout.flush()
 
     output_file.close()
@@ -209,3 +211,6 @@ def main():
 # accomplishes that.
 if __name__ == "__main__":
     main()
+
+# TODO: update rsz_rz too
+# TODO: update online documentation

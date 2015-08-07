@@ -232,7 +232,8 @@ class Cluster(object):
 
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
-            fig, ax = plotting.cmd(self)
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax)
             vc_ax, vmax = plotting.add_vega_labels(ax)
             plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax])
             figures.append(fig)
@@ -243,7 +244,9 @@ class Cluster(object):
 
         # If the user wants to see this initial fit, plot it.
         if params["fitting_procedure"] == "1":
-            fig, ax = plotting.cmd(self)
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax)
             plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value], "k")
             plotting.add_redshift(ax, self.z.value)
@@ -269,7 +272,8 @@ class Cluster(object):
 
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
-                fig, ax = plotting.cmd(self)
+                fig, ax = plt.subplots(figsize=(9, 6))
+                ax = plotting.cmd(self, ax)
                 plotting.add_vega_labels(ax)
                 plotting.add_one_model(ax, self.models[self.z.value], "k")
                 plotting.add_redshift(ax, self.z.value)
@@ -287,7 +291,9 @@ class Cluster(object):
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
-            fig, ax = plotting.cmd(self)
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax)
             plotting.add_vega_labels(ax)
             plotting.add_one_model(ax, self.models[self.z.value], "k")
             # I want to plot both the low and high models, so get those zs
@@ -302,13 +308,43 @@ class Cluster(object):
 
         # If the user wants, plot the location of the cluster and RS members.
         if params["location"] == "1":
-            fig, ax = plotting.location(self)
+            fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
+            ax = plotting.location(self, ax)
             plotting.add_redshift(ax, self.z)
             figures.append(fig)
 
-        # now that we are all done, save the figures.
-        save_as_one_pdf(figures, params["plot_directory"] +
+
+
+        if params["interactive"] == "1":
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
+                                           tight_layout=True)
+            ax1 = plotting.cmd(self, ax1)
+            plotting.add_vega_labels(ax1)
+            plotting.add_redshift(ax1, self.z)
+            plotting.add_one_model(ax1, self.models[self.z.value], "k")
+            plotting.add_flags(ax1, self.flags)
+
+            ax2 = plotting.location(self, ax2)
+            plotting.add_redshift(ax2, self.z)
+            plotting.add_flags(ax2, self.flags)
+
+            plt.show(block=False)
+            flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
+            plt.close(fig)
+
+            if flags == "i":
+                save_as_one_pdf(figures, params["plot_directory"] +
                         self.name + ".pdf")
+            elif flags == "f":
+                self.flags += 8
+
+            for fig in figures:
+                plt.close(fig)
+        else:
+            save_as_one_pdf(figures, params["plot_directory"] +
+                        self.name + ".pdf")
+
+
 
     def _location_cut(self, radius):
         """

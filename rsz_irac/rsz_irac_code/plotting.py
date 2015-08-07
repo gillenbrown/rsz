@@ -11,7 +11,7 @@ import model
 import data
 
 
-def cmd(cluster):
+def cmd(cluster, ax):
     """
     Plot a color-magnitude diagram for the cluster. Red sequence galaxies
     will be highlighted in red.
@@ -25,8 +25,6 @@ def cmd(cluster):
                      source.near_center and
                      (source.ch1 - source.ch2).error < 5.0]
 
-    # set up the plot
-    fig, ax = plt.subplots(figsize=(9, 6))
 
     # plot points one by one, so I don't have to make long lists for each
     # thing I want to plot. This is simpler, since I would need 6 lists.
@@ -44,17 +42,17 @@ def cmd(cluster):
                     fmt=".", elinewidth=0.35, capsize=0, markersize=5)
 
     # label and clean up the axes
-    ax.set_xlim(18, 23)
+    ax.set_xlim(18, 22)
     ax.set_ylim(-1, 0.5)
     ax.set_xlabel("ch2  [AB]")
     ax.set_ylabel("ch1 - ch2  [AB]")
-    ax.text(0.02, 0.96, cluster.name.replace("_", " "), transform=ax.transAxes,
-            horizontalalignment="left", verticalalignment="center",
+    ax.text(0.03, 0.97, cluster.name.replace("_", " "), transform=ax.transAxes,
+            horizontalalignment="left", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
 
     # return both the figure and the axis so that other functions can add
     # more cool stuff to the plot.
-    return fig, ax
+    return ax
 
 
 def add_vega_labels(ax):
@@ -180,12 +178,26 @@ def add_redshift(ax, redshift):
         text = "z=" + str(round(redshift, 2))
 
     # put the redshift on the plot
-    ax.text(0.97, 0.96, text, transform=ax.transAxes,
-            horizontalalignment="right", verticalalignment="center",
+    ax.text(0.97, 0.97, text, transform=ax.transAxes,
+            horizontalalignment="right", verticalalignment="top",
+            bbox=dict(facecolor="w", linewidth=0.0))
+
+def add_flags(ax, flags):
+    """
+    Puts the flags value in the corner of the plot.
+
+    :param ax: Axes to put the text on.
+    :param flags: Number to put in the plot.
+    :return: None, but the flags will be added in a box in the lower left
+             corner of the plot.
+    """
+    text = "flags: {}".format(flags)
+    ax.text(0.03, 0.03, text, transform=ax.transAxes,
+            horizontalalignment="left", verticalalignment="bottom",
             bbox=dict(facecolor="w", linewidth=0.0))
 
 
-def location(cluster):
+def location(cluster, ax):
     """Plot the location of all the sources in the cluster, with RS members
     highlighted.
 
@@ -197,7 +209,6 @@ def location(cluster):
     :return: fig, ax of the plot
     """
 
-    fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
     rs_member_ra, rs_member_dec = [], []
     center_ra, center_dec = [], []
     rest_ra, rest_dec = [], []
@@ -220,7 +231,7 @@ def location(cluster):
     # add labels and clean up the plot
     ax.set_xlabel("ra")
     ax.set_ylabel("dec")
-    legend = ax.legend(loc=3)
+    legend = ax.legend(loc=4)
     legend.get_frame().set_linewidth(0.5)
     # stop Matplotlib from making the axis have a weird offset, which is hard
     # to understand.
@@ -233,4 +244,4 @@ def location(cluster):
     ax.invert_xaxis()  # ra is backwards
     ax.set_aspect("equal", adjustable="box")  # we want ra and dec to be
     # scaled the same
-    return fig, ax
+    return ax
