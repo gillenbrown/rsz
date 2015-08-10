@@ -73,17 +73,17 @@ class RSModel(object):
         :returr: corrected redshift
         """
         # return redshift
-        # This is the fit, which is described by a linear relationship.
-        #  The first item is the slope, the second is the intercept.
-        #  If there were more items, they would go in descending power order.
-        fit = [1.09497851, -0.14801874]
+        # This is the fit, which comes from numpy.polynomial.polynomial.polyfit
+        # It is the coefficients of the polynomial, starting with the
+        # lowest power of z.
+        fit = [-0.49923895,  1.46508896]
         # turn to decimal , so it can play nice with redshifts, which are
         # of type decimal
         fit = [decimal.Decimal(i) for i in fit]
         # Applying the correction is just plugging in the redshift to the
         # correction polynomial. This is a complicated way to do that.
         corrected = sum([coeff * (redshift**i) for i, coeff in
-                         enumerate(reversed(fit))])
+                         enumerate(fit)])
         # round and turn into type decimal, which is what redshifts need to be.
         return decimal.Decimal(str(round(corrected, 3)))
 

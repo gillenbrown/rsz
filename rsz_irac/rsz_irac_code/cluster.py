@@ -748,7 +748,11 @@ def save_as_one_pdf(figs, filename):
     :return: none
     """
 
-    # Save the pdfs as one file
+    # check if there are actually figures to save.
+    if len(figs) == 0:
+        return
+
+    # if so, save them.
     pp = PdfPages(filename)
     for fig in figs:
         pp.savefig(fig)

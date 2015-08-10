@@ -212,5 +212,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# TODO: update rsz_rz too
 # TODO: update online documentation
