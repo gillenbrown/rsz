@@ -76,7 +76,8 @@ class RSModel(object):
         # This is the fit, which comes from numpy.polynomial.polynomial.polyfit
         # It is the coefficients of the polynomial, starting with the
         # lowest power of z.
-        fit = [-0.49923895,  1.46508896]
+        # fit = [-0.51625883322630828,  1.46508896]
+        fit = [-0.17985356,  1.1423761 ]
         # turn to decimal , so it can play nice with redshifts, which are
         # of type decimal
         fit = [decimal.Decimal(i) for i in fit]
