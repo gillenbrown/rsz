@@ -5,7 +5,7 @@
 import os
 import sys
 
-from rsz_irac_code import cluster
+from rsz_iz_code import cluster
 
 
 def abs_path(path):
@@ -41,7 +41,7 @@ def parse_config():
     """Parse the config file, making a dictionary of parameters.
 
     Will use the user's specified param file if they specify one, and the
-    default param file ('rsz_irac.param') if not.
+    default param file ('rsz_iz.param') if not.
 
     :return: dictionary, with keys of parameter names, and values of the
              desired values for those parameters.
@@ -56,9 +56,9 @@ def parse_config():
             config_file = open(config_path)
         except IOError:
             print config_path + " was not found. Opening default .param file."
-            config_file = open("rsz_irac.param")
+            config_file = open("rsz_iz.param")
     else:
-        config_file = open("rsz_irac.param")
+        config_file = open("rsz_iz.param")
 
     # parse the file into a parameters dictionary
     params = dict()
@@ -104,7 +104,7 @@ def start_output(params):
     output_file = open(params["results_file"], "w")
     # write the header, which looks really ugly in this format. It looks nice
     # when printed, though, I promise.
-    header = "# " + 20*"-" + 3*" " + "rsz_irac results" + 3*" " + 20*"-" + \
+    header = "# " + 20*"-" + 3*" " + "rsz_iz results" + 3*" " + 20*"-" + \
              "\n" + \
              "#\n" + \
              "# - name: name of the cluster\n" + \
@@ -127,8 +127,6 @@ def start_output(params):
              "#            maxima in the likelihood of redshift.\n" + \
              "#         4: Indistinct red sequence. The red sequence\n" + \
              "#            isn't clean.\n" + \
-             "#         8: User flag. If the code runs in interactive mode\n" + \
-             "#            the user can flag clusters as bad.\n" + \
              "#\n" + \
              "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
@@ -165,10 +163,9 @@ def main():
              the user specified in the parameter file.
     """
     # The header looks ugly here, but it is nice when printed.
-    header = "\n+" + 25*"-" + 6*" " + "rsz_irac" + 6*" " + 25*"-" + "+\n" +\
+    header = "\n+" + 25*"-" + 6*" " + "rsz_r=iz" + 6*" " + 25*"-" + "+\n" +\
              "|" + 70*" " + "|\n" + \
-             "|" + 5*" " + "Remember the clusters must be above z=0.7 for " \
-             "this to work!" + 6*" " + "|\n" +\
+             "|" + 5*" " + "rsz_iz" + 6*" " + "|\n" +\
              "|" + 70*" " + "|\n" + \
              "+" + 70*"-" + "+\n"
     print header
@@ -185,24 +182,28 @@ def main():
 
     # catalogs is a list of paths to catalogs. I start at one so that the
     # count printed to the user isn't off by one.
+    figures = []
     for i, cat_path in enumerate(catalogs, start=1):
         # make the cluster, and fit the redshift
         cl = cluster.Cluster(cat_path, params)
-        cl.fit_z(params)
+        figures.append(cl.fit_z(params))
+        print len(figures)
 
         # if the user wants to make rs catalogs, do it
         if params["rs_catalog_dir"] != '-99':
-            cl.rs_catalog(params)
+            cl.rs_catalog(params["rs_catalog_dir"] + cl.name + ".rs.cat")
 
         # make the output catalog
         add_to_catalog(output_file, cl)
 
         # update progress
         sys.stdout.write("\r")  # go back to the beginning of the line
-        sys.stdout.write("{}/{} clusters finished. ".format(i, len(catalogs)))
+        sys.stdout.write("{}/{} clusters finished.".format(i, len(catalogs)))
         sys.stdout.flush()
 
     output_file.close()
+
+    cluster.save_as_one_pdf(figures, "fits.pdf")
 
     print "\n"  # just to look nicer
 
@@ -211,6 +212,3 @@ def main():
 # accomplishes that.
 if __name__ == "__main__":
     main()
-
-# TODO: update online documentation
-# tODO: include intrinsic red sequence scatter in error calculation.

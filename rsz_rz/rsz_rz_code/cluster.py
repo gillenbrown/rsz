@@ -36,7 +36,8 @@ class Cluster(object):
     def _name(filepath, extension):
         filename = os.path.split(filepath)[-1]
         # just remove the extension from the filename
-        return filename.rstrip(extension)
+        return filename
+        # return filename.rstrip(extension)
 
     def read_catalog(self, filepath, params):
         """ Read the catalog, parsing things into sources.
