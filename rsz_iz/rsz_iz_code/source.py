@@ -4,7 +4,7 @@ class Source(object):
     For this implementation, only holds data in r and z, since that's
     all we need.
     """
-    def __init__(self, ra, dec, r_mag, z_mag, dist=None, rmz=None):
+    def __init__(self, ra, dec, i_mag, z_mag, dist=None, imz=None):
         """
         Constructor. Pass in Data class objects for the magnitudes if you
         want to include errors.
@@ -14,7 +14,7 @@ class Source(object):
 
         :param ra: ra of the object
         :param dec: declination of the object
-        :param r_mag: r band mag of the object. pass in a Data object if you
+        :param i_mag: i band mag of the object. pass in a Data object if you
                       want to include errors.
         :param z_mag: z band mag of the object. pass in a Data object if you
                         want to include errors.
@@ -24,12 +24,12 @@ class Source(object):
         """
         self.ra = ra
         self.dec = dec
-        self.r_mag = r_mag
+        self.i_mag = i_mag
         self.z_mag = z_mag
-        if rmz is not None:
-            self.rmz = rmz
+        if imz is not None:
+            self.imz = imz
         else:
-            self.rmz = self.r_mag - self.z_mag
+            self.imz = self.i_mag - self.z_mag
 
         self.dist = dist
 
@@ -51,7 +51,7 @@ class Source(object):
         :return: None, but some sources will be marked as RS members.
         """
 
-        if blue < self.rmz < red and bright < self.z_mag < faint:# and \
+        if blue < self.imz < red and bright < self.z_mag < faint:# and \
                # self.rmz.error < 0.2:
             self.RS_member = True
         else:

@@ -26,17 +26,27 @@ class _Slope(object):
         :return: a function that returns the slope at a given redshift
         """
 
-        # first we need to see at what redshift does ch1-ch2 see the various
+        # first we need to see at what redshift does r-z see the various
         # Eisenhardt colors.
 
         # Then do some interpolating here to find the slope at any redshift
 
         def slope(z):
-            # I'll assume zero slope for everything. This is wrong, but it's
-            # not too wrong to make the results totally wrong. The parameter
-            # z is kept there to make it easy to implement some kind of
-            # correction that actually uses it.
-            return 0
+
+            return 0  # just for now
+            # # fit is a polynomial (highest power first) that describes the
+            # # slope of the red sequence as a function of redshift
+            # fit = [-0.14489063, -0.00343316]
+            # # The work to get that is in the iPython notebook. It needs
+            # # work to make it prettier and more satisfying
+            #
+            # # turn to decimal , so it can play nice with redshifts, which are
+            # # of type decimal
+            # fit = [decimal.Decimal(i) for i in fit]
+            # # plug the redshift into the polynomial. This looks ugly, but
+            # # that's all it's doing.
+            # return float(sum([coeff * (z**i) for i, coeff in
+            #                   enumerate(reversed(fit))]))
 
         self.slope_function = slope
 
@@ -72,56 +82,55 @@ class RSModel(object):
         :param redshift: uncorrected redshift
         :returr: corrected redshift
         """
-        # return redshift
-        # This is the fit, which comes from numpy.polynomial.polynomial.polyfit
-        # It is the coefficients of the polynomial, starting with the
-        # lowest power of z.
-        # fit = [-0.51625883322630828,  1.46508896]
-        fit = [-0.17985356,  1.1423761 ]
-        # turn to decimal , so it can play nice with redshifts, which are
-        # of type decimal
-        fit = [decimal.Decimal(i) for i in fit]
-        # Applying the correction is just plugging in the redshift to the
-        # correction polynomial. This is a complicated way to do that.
-        corrected = sum([coeff * (redshift**i) for i, coeff in
-                         enumerate(fit)])
-        # round and turn into type decimal, which is what redshifts need to be.
-        return decimal.Decimal(str(round(corrected, 3)))
+        return redshift  # just for now
+        # # This is the fit, which is described by a linear relationship.
+        # #  The first item is the slope, the second is the intercept.
+        # #  If there were more items, they would go in descending power order.
+        # fit = [1.0834470213733527, 0.01705775352432836]
+        # # turn to decimal , so it can play nice with redshifts, which are
+        # # of type decimal
+        # fit = [decimal.Decimal(i) for i in fit]
+        # # Applying the correction is just plugging in the redshift to the
+        # # correction polynomial. This is a complicated way to do that.
+        # corrected = sum([coeff * (redshift**i) for i, coeff in
+        #                  enumerate(reversed(fit))])
+        # # round and turn into type decimal, which is what redshifts need to be.
+        # return decimal.Decimal(str(round(corrected, 3)))
 
-    def __init__(self, redshift, ch1_mag, ch2_mag):
+    def __init__(self, redshift, i_mag, z_mag):
         """
         Initializes the useful parameters that will be used to calculate
         where the red sequence is.
 
         :param redshift: redshift at which these points are calculated
-        :param ch1_mag: ch1_mag at that redshift
-        :param ch2_mag: ch2_mag at that redshift
+        :param r_mag: r_mag at that redshift
+        :param z_mag: z_mag at that redshift
         :return: Model object.
         """
 
-        self.mag_point = ch2_mag
-        self.color_point = ch1_mag - ch2_mag
+        self.mag_point = z_mag
+        self.color_point = i_mag - z_mag
         self.z = RSModel.correction(redshift)
         self._slope = RSModel.slope(redshift)
 
-    def rs_color(self, ch2_mag):
+    def rs_color(self, z_mag):
         """
-        Calculate the color (ch1-ch2) of the red sequence at the given ch2
+        Calculate the color (r-z) of the red sequence at the given z
         magnitude.
 
-        :param ch2_mag: ch2 magnitude at which we want the color of the
-                        red sequence
+        :param z_mag: z magnitude at which we want the color of the
+                      red sequence
         :return: float value with the color of the red sequence
 
         Algorithm: Start with point slope form of a line
         y - y1 = m(x - x1)
         y = y1 + m(x - x1)
-        Where x is ch2 magnitude, y is ch1-ch2 color, m is the slope of the
+        Where x is z magnitude, y is r-z color, m is the slope of the
         red sequence, and x1 and y1 are the zeropoint that was returned by
         EzGal.
         """
 
-        return self.color_point + self._slope * (ch2_mag - self.mag_point)
+        return self.color_point + self._slope * (z_mag - self.mag_point)
 
 
 def model_dict(spacing):
@@ -140,15 +149,15 @@ def model_dict(spacing):
 
     # decide the formation redshift and observed redshift
     zf = 3.0
-    zs = np.arange(0.7, 1.700001, spacing)
+    zs = np.arange(0.3, 1.900001, spacing)
 
     # normalize to Coma
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,
                             z=0.023)
 
     # Calculate the observables we want in AB mags
-    mags = model.get_apparent_mags(zf, filters=["ch1", "ch2"], zs=zs,
-                                   ab=True)
+    mags = model.get_apparent_mags(zf, filters=["sloan_z", "ch1"], zs=zs,
+                                   vega=True)
 
     # initialize an empty dictionary that will be filled with RSModel objects
     rs_models = dict()
@@ -171,10 +180,10 @@ def model_dict(spacing):
     decimal_zs = [decimal.Decimal(z) for z in z_2_digits]
 
     for z, m in zip(decimal_zs, mags):
-        ch1, ch2 = m  # split the magnitudes into ch1 and ch2
+        i_mag, z_mag = m  # split the magnitudes into i and z
         # The correction to the redshift is done when the RSModel
         # object is initialized
-        this_model = RSModel(z, ch1, ch2)
+        this_model = RSModel(z, i_mag, z_mag)
         rs_models[this_model.z] = this_model
 
     return rs_models

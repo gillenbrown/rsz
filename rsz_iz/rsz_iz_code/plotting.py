@@ -11,7 +11,7 @@ import model
 import data
 
 
-def cmd(cluster, ax):
+def cmd(cluster):
     """
     Plot a color-magnitude diagram for the cluster. Red sequence galaxies
     will be highlighted in red.
@@ -22,15 +22,16 @@ def cmd(cluster, ax):
 
     # throw out a few sources that don't need to be plotted.
     valid_sources = [source for source in cluster.sources_list if
-                     source.near_center and
-                     (source.ch1 - source.ch2).error < 5.0]
+                     source.near_center and source.imz.error < 5.0]
 
+    # set up the plot
+    fig, ax = plt.subplots(figsize=(9, 6))
 
     # plot points one by one, so I don't have to make long lists for each
     # thing I want to plot. This is simpler, since I would need 6 lists.
     for source in valid_sources:
-        mag = source.ch2.value
-        color = source.ch1_m_ch2
+        mag = source.z_mag.value
+        color = source.imz
         # red sequence members will be colored red, while non RS galaxies
         # will be colored black.
         if source.RS_member:
@@ -42,17 +43,17 @@ def cmd(cluster, ax):
                     fmt=".", elinewidth=0.35, capsize=0, markersize=5)
 
     # label and clean up the axes
-    ax.set_xlim(18, 22)
-    ax.set_ylim(-1, 0.5)
-    ax.set_xlabel("ch2  [AB]")
-    ax.set_ylabel("ch1 - ch2  [AB]")
-    ax.text(0.03, 0.97, cluster.name.replace("_", " "), transform=ax.transAxes,
-            horizontalalignment="left", verticalalignment="top",
+    ax.set_xlim(15, 20)
+    ax.set_ylim(2, 6)
+    ax.set_xlabel("z' magnitude  [Vega]")
+    ax.set_ylabel("r' - z'  [Vega]")
+    ax.text(0.02, 0.96, cluster.name.replace("_", " "), transform=ax.transAxes,
+            horizontalalignment="left", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
 
     # return both the figure and the axis so that other functions can add
     # more cool stuff to the plot.
-    return ax
+    return fig, ax
 
 
 def add_vega_labels(ax):
@@ -62,29 +63,30 @@ def add_vega_labels(ax):
     :return: y axis, x axis that vega labels were added to. This is needed if
              you want to add more stuff to the plot later.
     """
-    # move ticks left and bottom, since we want Vega ticks on right and top
-    ax.xaxis.tick_bottom()
-    ax.yaxis.tick_left()
-
-    # record conversion factors
-    # ch1: Vega - AB = -2.787
-    ab_v_1 = -2.787
-    # ch2: Vega - AB = -3.260
-    ab_v_2 = -3.260
-    # we need to make a second axis
-    vega_color_ax = ax.twinx()
-    vega_mag_ax = ax.twiny()
-    # set limits and label the new axis, using Vega mags.
-    vega_mag_ax.set_xlim(18 + ab_v_2, 23 + ab_v_2)
-    vega_color_ax.set_ylim(-1 + (ab_v_1 - ab_v_2), 0.5 + (ab_v_1 - ab_v_2))
-    vega_mag_ax.set_xlabel("ch2  [Vega]")
-    vega_mag_ax.xaxis.set_label_position("top")
-    vega_mag_ax.xaxis.tick_top()
-    vega_color_ax.set_ylabel("ch1 - ch2  [Vega]")
-    vega_color_ax.yaxis.set_label_position("right")
-    vega_color_ax.yaxis.tick_right()
-
-    return vega_color_ax, vega_mag_ax
+    return None, None
+    # # move ticks left and bottom, since we want Vega ticks on right and top
+    # ax.xaxis.tick_bottom()
+    # ax.yaxis.tick_left()
+    #
+    # # record conversion factors
+    # # ch1: Vega - AB = -2.787
+    # ab_v_i = -0.37
+    # # ch2: Vega - AB = -3.260
+    # ab_v_z = -0.54
+    # # we need to make a second axis
+    # vega_color_ax = ax.twinx()
+    # vega_mag_ax = ax.twiny()
+    # # set limits and label the new axis, using Vega mags.
+    # vega_mag_ax.set_xlim(16 + ab_v_z, 24 + ab_v_z)
+    # vega_color_ax.set_ylim(-0.5 + (ab_v_i - ab_v_z), 1.5 + (ab_v_i - ab_v_z))
+    # vega_mag_ax.set_xlabel("z  [Vega]")
+    # vega_mag_ax.xaxis.set_label_position("top")
+    # vega_mag_ax.xaxis.tick_top()
+    # vega_color_ax.set_ylabel("i - z  [Vega]")
+    # vega_color_ax.yaxis.set_label_position("right")
+    # vega_color_ax.yaxis.tick_right()
+    #
+    # return vega_color_ax, vega_mag_ax
 
 
 def add_all_models(fig, ax, steal_axs):
@@ -140,10 +142,10 @@ def add_one_model(ax, rs_model, color):
     :return: none, but ax will be modified
     """
     # make two points in the line for this RS
-    ch2s = [10, 30]
-    colors = [rs_model.rs_color(ch2) for ch2 in ch2s]
+    z_mags = [10, 30]
+    colors = [rs_model.rs_color(z_mag) for z_mag in z_mags]
     # plot that line
-    ax.plot(ch2s, colors, color=color, linewidth=0.5, zorder=0)
+    ax.plot(z_mags, colors, color=color, linewidth=0.5, zorder=0)
 
     # also plot the points that correspond to L*
     ax.scatter(rs_model.mag_point, rs_model.color_point, c=color,
@@ -178,26 +180,12 @@ def add_redshift(ax, redshift):
         text = "z=" + str(round(redshift, 2))
 
     # put the redshift on the plot
-    ax.text(0.97, 0.97, text, transform=ax.transAxes,
-            horizontalalignment="right", verticalalignment="top",
-            bbox=dict(facecolor="w", linewidth=0.0))
-
-def add_flags(ax, flags):
-    """
-    Puts the flags value in the corner of the plot.
-
-    :param ax: Axes to put the text on.
-    :param flags: Number to put in the plot.
-    :return: None, but the flags will be added in a box in the lower left
-             corner of the plot.
-    """
-    text = "flags: {}".format(flags)
-    ax.text(0.03, 0.03, text, transform=ax.transAxes,
-            horizontalalignment="left", verticalalignment="bottom",
+    ax.text(0.97, 0.96, text, transform=ax.transAxes,
+            horizontalalignment="right", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
 
 
-def location(cluster, ax):
+def location(cluster):
     """Plot the location of all the sources in the cluster, with RS members
     highlighted.
 
@@ -209,6 +197,7 @@ def location(cluster, ax):
     :return: fig, ax of the plot
     """
 
+    fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
     rs_member_ra, rs_member_dec = [], []
     center_ra, center_dec = [], []
     rest_ra, rest_dec = [], []
@@ -231,7 +220,7 @@ def location(cluster, ax):
     # add labels and clean up the plot
     ax.set_xlabel("ra")
     ax.set_ylabel("dec")
-    legend = ax.legend(loc=4)
+    legend = ax.legend(loc=3)
     legend.get_frame().set_linewidth(0.5)
     # stop Matplotlib from making the axis have a weird offset, which is hard
     # to understand.
@@ -244,4 +233,4 @@ def location(cluster, ax):
     ax.invert_xaxis()  # ra is backwards
     ax.set_aspect("equal", adjustable="box")  # we want ra and dec to be
     # scaled the same
-    return ax
+    return fig, ax
