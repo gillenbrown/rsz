@@ -127,13 +127,13 @@ def start_output(params):
              "#            maxima in the likelihood of redshift.\n" + \
              "#         4: Indistinct red sequence. The red sequence\n" + \
              "#            isn't clean.\n" + \
-             "#         8: User flag. If the code runs in interactive mode\n" + \
-             "#            the user can flag clusters as bad.\n" + \
+             "#         8: User flag. If the code runs in interactive \n" + \
+             "#            mode the user can flag clusters as bad.\n" + \
              "#\n" + \
              "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
-    labels = '# {:15s}{:6s}{:6s}{:6s}{:6s}'.format("name", "z", "ez+",
-                                                   "ez-", "flags")
+    labels = '# {:25s} {:6s} {:6s} {:6s} {:6s}'.format("name", "z", "ez+",
+                                                       "ez-", "flags")
     output_file.write(labels)
     return output_file
 
@@ -145,12 +145,12 @@ def add_to_catalog(output_file, the_cluster):
     :param the_cluster: Cluster to add results from.
     :return: none, but the data from the cluster will be written to the file.
     """
-    line = '\n{:17s}{:<6}{:<6}' \
-           '{:<6}{:<6}'.format(the_cluster.name.replace(" ", "_"),
-                               round(the_cluster.z.value, 2),
-                               round(the_cluster.z.upper_error, 2),
-                               round(the_cluster.z.lower_error, 2),
-                               the_cluster.flags)
+    line = '\n{:27s} {:<6} {:<6}' \
+           '{:<6} {:<6}'.format(the_cluster.name.replace(" ", "_"),
+                                round(the_cluster.z.value, 2),
+                                round(the_cluster.z.upper_error, 2),
+                                round(the_cluster.z.lower_error, 2),
+                                the_cluster.flags)
     output_file.write(line)
 
 
