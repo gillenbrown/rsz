@@ -727,8 +727,8 @@ class Cluster(object):
 
         with open(filepath, "w") as cat:
             # I want the headers to line up over the data
-            header = "# {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
-                     "{:10s} {:10s} {:2s}\n".format("ra", "dec", "ch1", "ech1",
+            header = "# {:12s} {:12s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
+                     "{:10s} {:6s} {:2s}\n".format("ra", "dec", "ch1", "ech1",
                                              "ch2", "ech2", "ch1-ch2",
                                              "ech1-ch2", "center", "RS")
             cat.write(header)
@@ -753,15 +753,32 @@ class Cluster(object):
                     out_ch1 = source.ch1.value
                     out_ch2 = source.ch2.value
                     out_ch1_m_ch2 = source.ch1_m_ch2.value
-                cat.write("  {:<10g} {:<10g} {:<10g} {:<10g} {:<10g} {:<10g} {:<10g} "
-                          "{:<10g} {:<10d} {:<2d}\n".format(source.ra,
+                out_ch1_err = source.ch1.error
+                out_ch2_err = source.ch2.error
+                out_ch1_m_ch2_err = source.ch1_m_ch2.error
+
+                def fix_data(data_imem):
+                    if abs(data_imem) > 50:
+                        return -99
+                    else:
+                        return data_imem
+
+                out_ch1 = fix_data(out_ch1)
+                out_ch2 = fix_data(out_ch2)
+                out_ch1_m_ch2 = fix_data(out_ch1_m_ch2)
+                out_ch1_err = fix_data(out_ch1_err)
+                out_ch2_err = fix_data(out_ch2_err)
+                out_ch1_m_ch2_err = fix_data(out_ch1_m_ch2_err)
+
+                cat.write("  {:<12.7f} {:<12.7f} {:<10.2f} {:<10.3f} {:<10.2f} {:<10.3f} {:<10.2f} "
+                          "{:<10.3f} {:<6d} {:<2d}\n".format(source.ra,
                                                   source.dec,
                                                   out_ch1,
-                                                  source.ch1.error,
+                                                  out_ch1_err,
                                                   out_ch2,
-                                                  source.ch2.error,
+                                                  out_ch2_err,
                                                   out_ch1_m_ch2,
-                                                  source.ch1_m_ch2.error,
+                                                  out_ch1_m_ch2_err,
                                                   center, rs))
 
 
