@@ -4,7 +4,7 @@ class Source(object):
     For this implementation, only holds data in ch1 and ch2, since that's
     all we need.
     """
-    def __init__(self, ra, dec, ch1_mag, ch2_mag, dist=None, ch1mch2=None):
+    def __init__(self, ra, dec, mags, dist=None):
         """
         Constructor. Pass in Data class objects for the magnitudes if you
         want to include errors.
@@ -13,29 +13,43 @@ class Source(object):
         math on them, which won't work if they are strings.
 
         :param ra: ra of the object
+        :type ra: float
         :param dec: declination of the object
-        :param ch1_mag: ch1 mag of the object. pass in a Data object if you
-                        want to include errors.
-        :param ch2_mag: ch2 mag of the object. pass in a Data object if you
-                        want to include errors.
+        :type dec: float
+        :param mags: Dictionary with magnitude information. Keys are bands,
+                     values are the data objects with a value and error.
+        :type mags: dict
         :param dist: distance of the galaxy from the overdensity center in
                      arcseconds.
+        :type dist: float
         """
         self.ra = ra
         self.dec = dec
-        self.ch1 = ch1_mag
-        self.ch2 = ch2_mag
-        if ch1mch2 is not None:
-            self.ch1_m_ch2 = ch1mch2
-        else:
-            self.ch1_m_ch2 = self.ch1 - self.ch2
+
+        self.mags = mags
+        self._calculate_colors()
 
         self.dist = dist
 
         self.near_center = False
         self.RS_member = False
 
-    def rs_membership(self, blue, red, bright, faint):
+    def _calculate_colors(self):
+        """
+        Calculates color information from all the mag information. This
+        creates all possible colors, even if some of them are meaningless.
+        This won't matter in the long run, since those meaningless colors
+        won't get called.
+
+        :return: None, but self.colors is initialized appropiately
+        """
+        self.colors = dict()
+        for band_1 in self.mags:
+            for band_2 in self.mags:
+                color = "{}-{}".format(band_1, band_2)
+                self.colors[color] = self.mags[band_1] - self.mags[band_2]
+
+    def rs_membership(self, color, blue, red, bright, faint):
         """Mark sources as red sequence members if they pass the given cuts.
 
         Sources will be marked as red sequence members if they have a color
@@ -43,15 +57,17 @@ class Source(object):
 
         Also does an error cut on the color.
 
+        :param color: Which color we are using to determin RS membership.
         :param blue: bluest color a source can be to be a RS member
         :param red: reddest color a source can be to be a RS member
-        :param bright: brightest ch2 magnitude "" "" "" "" "" "" ""
-        :param faint: dimmest ch2 magnitude "" "" "" "" "" "" ""
+        :param bright: brightest magnitude "" "" "" "" "" "" ""
+        :param faint: dimmest magnitude "" "" "" "" "" "" ""
         :return: None, but some sources will be marked as RS members.
         """
-
-        if blue < self.ch1_m_ch2 < red and bright < self.ch2 < faint and \
-                self.ch1_m_ch2.error < 0.2:
+        red_band = color.split("-")[1]
+        if blue < self.colors[color] < red and \
+                bright < self.mags[red_band] < faint and \
+                self.colors[color].error < 0.2:
             self.RS_member = True
         else:
             self.RS_member = False
