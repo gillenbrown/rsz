@@ -1,13 +1,14 @@
 import os
-import math
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+import numpy as np
 
 import model
 from source import Source
 import data
 import plotting
+import config
 
 
 class Cluster(object):
@@ -30,7 +31,7 @@ class Cluster(object):
         self.flags = 0
 
         # then read in the objects in the catalog
-        # self.read_catalog(filepath, params)
+        self.read_catalog(filepath, params)
 
     @staticmethod
     def _name(filepath, extension):
@@ -58,7 +59,7 @@ class Cluster(object):
 
                     # get the various things from the parser functions.
                     ra, dec = self.get_ra_dec(params, split_line)
-                    ch1, ch2, ch1mch2 = self.get_mags(params, split_line)
+                    mags = self.get_mags(params, split_line)
                     dist = self.get_dist(params, split_line)
 
                     # check that the user has specified the appropriate things.
@@ -66,7 +67,7 @@ class Cluster(object):
                         raise TypeError("Specify one of either ra/dec or dist")
 
                     # turn this info into a source object, then add it.
-                    this_source = Source(ra, dec, ch1, ch2,  dist, ch1mch2)
+                    this_source = Source(ra, dec, mags, dist)
                     self.sources_list.append(this_source)
 
     @staticmethod
@@ -110,69 +111,55 @@ class Cluster(object):
         """
         # check that they did the type and mags right
         if params["type"] not in ["mag", "flux"] or \
-           params["mags"] not in ["vega", "ab"]:
+           params["mag_system"] not in ["vega", "ab"]:
             raise TypeError("Either type or mags wasn't specified correctly"
                             "in the parameter file.")
 
-        # get the data that is in those columns, whether it is mags or flux
-        # ch2 is required, but the other stuff isn't.
-        ch2 = split_line[int(params["ch2"])]
-        if params["e_ch2"] != "-99":
-            ech2 = split_line[int(params["e_ch2"])]
-        else:
-            raise ValueError("You have to specify errors on ch2.")
+        # see which bands were specified in the param file
+        non_band_params = ["catalog_directory", "extension",
+                           "plot_directory", "results_file", "rs_catalog_dir",
+                           "type", "mag_zeropoint", "mag_system", "ra", "dec",
+                           "dist", "CMD", "fitting_procedure", "final_CMD",
+                           "location"]
 
-        if params["ch1"] != "-99":
-            ch1 = split_line[int(params["ch1"])]
-            if params["e_ch1"] != "-99":
-                ech1 = split_line[int(params["e_ch1"])]
-            else:
-                raise ValueError("You have to specify errors on ch2.")
-        else:
-            ch1 = None
-            ech1 = None
+        bands = []
+        for key in params:
+            if key in non_band_params:
+                continue
+            # the key we have is either a flux/mag or an error
+            if not key.endswith("_err"):
+                bands.append(key)
 
-        if params["ch1-ch2"] != "-99":
-            ch1mch2 = split_line[int(params["ch1-ch2"])]
-            ech1mch2 = split_line[int(params["e_ch1-ch2"])]
-        else:
-            ch1mch2 = None
-            ech1mch2 = None
+        mags = dict()
+        for band in bands:
+            band_idx = int(params[band])
+            band_err_idx = int(params[band + "_err"])
 
-        # Convert fluxes to magnitudes if need be
-        if params["type"] == "flux":
-            ech1 = Cluster.percent_flux_errors_to_mag_errors(ech1/ch1)
-            ch1 = Cluster.flux_to_mag(ch1, 23.9)
-            if ch2 is not None:
-                ech2 = Cluster.percent_flux_errors_to_mag_errors(ech2/ch2)
-                ch2 = Cluster.flux_to_mag(ch2, 23.9)
-            # The color should already be correct.
+            band_data = split_line[band_idx]
+            band_data_err = split_line[band_err_idx]
 
-        # if we are missing either ch1 or the color, use the other info
-        # to find it
-        if ch1 is None and ch1mch2 is None:
-            raise IndexError("Either ch1 or the color must be specified "
-                             "in the parameter file.")
-        if ch1 is None:
-            ch1 = ch1mch2 + ch2
-            ech1 = math.sqrt(ech1mch2**2 - ech2**2)
-            # Yes, that is minus. That is because:
-            # e_ch1-ch2**2 = ech1**2 + ech2**2
-        if ch1mch2 is None:
-            ch1mch2 = ch1 - ch2
-            ech1mch2 = math.sqrt(ech1**2 + ech2**2)
+            # convert fluxes to magnitudes if need be
+            if params["type"] == "flux":
+                # calculate magerr first, since we need to use the flux
+                band_data_err = Cluster.percent_flux_errors_to_mag_errors(
+                    band_data_err / band_data)
+                # print band_data
+                band_data = Cluster.flux_to_mag(band_data,
+                                                float(params["mag_zeropoint"]))
 
-        # Convert to AB mags if needed. If we used flux, they are already in AB
-        if params["type"] == "mag" and params["mags"] == "vega":
-            ch1 += 2.787
-            ch2 += 3.260
-            ch1mch2 = ch1mch2 + 2.787 - 3.260
 
-        # convert to type Data
-        data_ch1 = data.Data(ch1, ech1)
-        data_ch2 = data.Data(ch2, ech2)
-        data_ch1mch2 = data.Data(ch1mch2, ech1mch2)
-        return data_ch1, data_ch2, data_ch1mch2
+            # Convert to AB mags if needed. If we used flux, they are already in AB
+            if params["type"] == "mag" and params["mag_system"] == "vega":
+                try:
+                    band_data += config.vega_to_ab(band)
+                except KeyError:
+                    raise KeyError("Please specify the AB/Vega conversion "
+                                   "for {} in config.py.".format(band))
+
+            # convert to Data type, and add to dictionary
+            mags[band] = data.Data(band_data, band_data_err)
+
+        return mags
 
     @staticmethod
     def get_dist(params, split_line):
@@ -197,9 +184,9 @@ class Cluster(object):
         :return: magnitude that corresponds to the given flux. If flux is
                  negative, -99 is returned.
         """
-        if flux < 0:
+        if flux <= 0:
             return -99
-        return -2.5 * math.log10(flux) + zeropoint
+        return -2.5 * np.log10(flux) + zeropoint
 
     @staticmethod
     def percent_flux_errors_to_mag_errors(percent_flux_error):
@@ -211,7 +198,7 @@ class Cluster(object):
         :param percent_flux_error: percentage flux error
         :return: magnitude error corresponding to the percentage flux error.
         """
-        return (2.5 / math.log(10, math.e)) * percent_flux_error
+        return (2.5 / np.log(10)) * percent_flux_error
 
     def __repr__(self):
         return self.name

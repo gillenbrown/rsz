@@ -56,6 +56,7 @@ def parse_config():
 
     return params
 
+
 def fitting_combos(params):
     """
     Figure out which band combinations we can use to fit the red sequence,
@@ -84,7 +85,7 @@ def fitting_combos(params):
             combo = "{}-{}".format(band1, band2)
             if combo in config.fitting_combos:
                 band_combos.append(combo)
-    return band_combos
+    return bands, band_combos
 
 
 def get_catalogs(parent_directory, extension):
@@ -187,7 +188,7 @@ def main():
     print "Reading parameter file..."
     # parse the config file, find the catalogs, and start the output
     params = parse_config()
-    fit_combos = fitting_combos(params)
+    bands, fit_combos = fitting_combos(params)
     catalogs = get_catalogs(params["catalog_directory"], params["extension"])
 
     print "Starting redshift fitting..."

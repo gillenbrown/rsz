@@ -27,3 +27,13 @@ sloan_r_m_sloan_z["slope_fit"] = [-0.00343316, -0.14489063]
 
 cfg_matches = {"ch1-ch2": ch1_m_ch2,
                "sloan_r-sloan_z": sloan_r_m_sloan_z}
+
+# store Vega to AB conversions. This stores factor, such that
+# AB_mag = Vega_mag + factor
+vega_to_ab = {"ch1": 2.788,  # http://irsa.ipac.caltech.edu/data/COSMOS/tables/scosmos/scosmos_irac_200706_colDescriptions.html
+              "ch2": 3.255,  # same
+              "sloan_u": 0.91, # http://www.astronomy.ohio-state.edu/~martini/usefuldata.html
+              "sloan_g": -0.08, # same
+              "sloan_r": 0.16, # same
+              "sloan_i": 0.37, # same
+              "sloan_z": 0.54} # same

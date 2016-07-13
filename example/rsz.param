@@ -24,7 +24,7 @@
 # -----------------------------------------------------------------------------
 
 catalog_directory = catalogs/
-extension = .cat
+extension = .test
 plot_directory = plots/
 results_file = results.txt
 rs_catalog_dir = rs_catalogs/
@@ -65,7 +65,7 @@ rs_catalog_dir = rs_catalogs/
 
 type = flux
 mag_zeropoint = 23.9
-mag_system = AB
+mag_system = ab
 ra =  0
 dec = 1
 dist = -99
