@@ -30,7 +30,7 @@ class Cluster(object):
         self.flags = 0
 
         # then read in the objects in the catalog
-        self.read_catalog(filepath, params)
+        # self.read_catalog(filepath, params)
 
     @staticmethod
     def _name(filepath, extension):
