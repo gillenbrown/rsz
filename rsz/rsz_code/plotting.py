@@ -3,15 +3,17 @@ import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
 import numpy as np
 try:
-    import prettyplot
+    import betterplotlib
+    betterplotlib.default_style()
 except ImportError:
     pass
 
 import model
 import data
+import config
 
 
-def cmd(cluster, ax):
+def cmd(cluster, ax, color, cfg):
     """
     Plot a color-magnitude diagram for the cluster. Red sequence galaxies
     will be highlighted in red.
@@ -20,17 +22,19 @@ def cmd(cluster, ax):
     :return: figure AND axis objects for the plot
     """
 
+    blue_band, red_band = color.split("-")
+
     # throw out a few sources that don't need to be plotted.
     valid_sources = [source for source in cluster.sources_list if
                      source.near_center and
-                     (source.ch1 - source.ch2).error < 5.0]
+                     (source.colors[color]).error < 0.2]
 
 
     # plot points one by one, so I don't have to make long lists for each
     # thing I want to plot. This is simpler, since I would need 6 lists.
     for source in valid_sources:
-        mag = source.ch2.value
-        color = source.ch1_m_ch2
+        mag = source.mags[red_band].value
+        source_color = source.colors[color]
         # red sequence members will be colored red, while non RS galaxies
         # will be colored black.
         if source.RS_member:
@@ -38,14 +42,15 @@ def cmd(cluster, ax):
         else:
             point_color = "k"
 
-        ax.errorbar(x=mag, y=color.value, yerr=color.error, c=point_color,
-                    fmt=".", elinewidth=0.35, capsize=0, markersize=5)
+        ax.errorbar(x=mag, y=source_color.value, yerr=source_color.error,
+                    c=point_color, fmt=".", elinewidth=0.35, capsize=0,
+                    markersize=5)
 
     # label and clean up the axes
-    ax.set_xlim(18, 22)
-    ax.set_ylim(-1, 0.5)
-    ax.set_xlabel("ch2  [AB]")
-    ax.set_ylabel("ch1 - ch2  [AB]")
+    ax.set_xlim(cfg["plot_lims"][0], cfg["plot_lims"][1])
+    ax.set_ylim(cfg["plot_lims"][2], cfg["plot_lims"][3])
+    ax.set_xlabel("{}  [AB]".format(red_band))
+    ax.set_ylabel("{}  [AB]".format(color))
     ax.text(0.03, 0.97, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
@@ -55,7 +60,7 @@ def cmd(cluster, ax):
     return ax
 
 
-def add_vega_labels(ax):
+def add_vega_labels(ax, blue_band, red_band, cfg):
     """ Adds labels with magnitudes in Vega to the CMD.
 
     :param ax: axis to add Vega mags to
@@ -66,28 +71,34 @@ def add_vega_labels(ax):
     ax.xaxis.tick_bottom()
     ax.yaxis.tick_left()
 
-    # record conversion factors
-    # ch1: Vega - AB = -2.787
-    ab_v_1 = -2.787
-    # ch2: Vega - AB = -3.260
-    ab_v_2 = -3.260
+    # we store our conversion factors in the form AB_mag = Vega_mag + factor,
+    # so to get Vega mags we subtract our factor
+    x_min = cfg["plot_lims"][0] - config.vega_to_ab[red_band]
+    x_max = cfg["plot_lims"][1] - config.vega_to_ab[red_band]
+
+    # y is a little trickier, we need to convert both to Vega
+    y_min = cfg["plot_lims"][2] - (config.vega_to_ab[blue_band] -
+                                   config.vega_to_ab[red_band])
+    y_max = cfg["plot_lims"][3] - (config.vega_to_ab[blue_band] -
+                                   config.vega_to_ab[red_band])
+
     # we need to make a second axis
     vega_color_ax = ax.twinx()
     vega_mag_ax = ax.twiny()
     # set limits and label the new axis, using Vega mags.
-    vega_mag_ax.set_xlim(18 + ab_v_2, 23 + ab_v_2)
-    vega_color_ax.set_ylim(-1 + (ab_v_1 - ab_v_2), 0.5 + (ab_v_1 - ab_v_2))
-    vega_mag_ax.set_xlabel("ch2  [Vega]")
+    vega_mag_ax.set_xlim(x_min, x_max)
+    vega_color_ax.set_ylim(y_min, y_max)
+    vega_mag_ax.set_xlabel("{}  [Vega]".format(red_band))
     vega_mag_ax.xaxis.set_label_position("top")
     vega_mag_ax.xaxis.tick_top()
-    vega_color_ax.set_ylabel("ch1 - ch2  [Vega]")
+    vega_color_ax.set_ylabel("{} - {}  [Vega]".format(blue_band, red_band))
     vega_color_ax.yaxis.set_label_position("right")
     vega_color_ax.yaxis.tick_right()
 
     return vega_color_ax, vega_mag_ax
 
 
-def add_all_models(fig, ax, steal_axs):
+def add_all_models(fig, ax, steal_axs, color):
     """
     Adds the RS models to the given axis, adding a colorbar to code redshift.
 
@@ -104,7 +115,7 @@ def add_all_models(fig, ax, steal_axs):
     """
 
     # get the model predictions, with fairly large spacing.
-    models = model.model_dict(0.05)
+    models = model.model_dict(0.05)[color]
 
     # set the colormap, so we can color code lines by redshift
     spectral = plt.get_cmap("RdYlBu_r")

@@ -18,12 +18,20 @@ ch1_m_ch2["z_max"] = 1.7
 ch1_m_ch2["correction"] = [-0.17985356,  1.1423761]
 ch1_m_ch2["slope_fit"] = [0, 0]
 
+# plotting info
+# mag_min, mag_max, color_min, color_max
+ch1_m_ch2["plot_lims"] = [18, 22, -1, 0.5]
+
 
 sloan_r_m_sloan_z = dict()
 sloan_r_m_sloan_z["z_min"] = 0.5
 sloan_r_m_sloan_z["z_max"] = 1.5
 sloan_r_m_sloan_z["correction"] = [0.01705775352432836, 1.0834470213733527]
 sloan_r_m_sloan_z["slope_fit"] = [-0.00343316, -0.14489063]
+
+# plotting info
+# mag_min, mag_max, color_min, color_max
+sloan_r_m_sloan_z["plot_lims"] = [20, 23.5, 0, 3.5]
 
 cfg_matches = {"ch1-ch2": ch1_m_ch2,
                "sloan_r-sloan_z": sloan_r_m_sloan_z}

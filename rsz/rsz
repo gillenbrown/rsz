@@ -68,7 +68,8 @@ def fitting_combos(params):
     non_band_params = ["catalog_directory", "extension", "plot_directory",
                        "results_file", "rs_catalog_dir", "type",
                        "mag_zeropoint", "mag_system", "ra", "dec", "dist",
-                       "CMD", "fitting_procedure", "final_CMD", "location"]
+                       "CMD", "fitting_procedure", "final_CMD", "location",
+                       "interactive"]
 
     bands = []
     for key in params:
@@ -201,8 +202,11 @@ def main():
     for i, cat_path in enumerate(catalogs, start=1):
         # make the cluster, and fit the redshift
         cl = cluster.Cluster(cat_path, params)
-        # cl.fit_z(params)
+        for color in fit_combos:
+            cl.fit_z(params, color)
 
+        cluster.save_as_one_pdf(cl.figures, params["plot_directory"] + os.sep +
+                                cl.name + ".pdf")
         # if the user wants to make rs catalogs, do it
         # if params["rs_catalog_dir"] != '-99':
         #     cl.rs_catalog(params)

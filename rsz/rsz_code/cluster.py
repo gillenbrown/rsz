@@ -30,6 +30,8 @@ class Cluster(object):
         self.z = None
         self.flags = 0
 
+        self.figures = []
+
         # then read in the objects in the catalog
         self.read_catalog(filepath, params)
 
@@ -120,7 +122,7 @@ class Cluster(object):
                            "plot_directory", "results_file", "rs_catalog_dir",
                            "type", "mag_zeropoint", "mag_system", "ra", "dec",
                            "dist", "CMD", "fitting_procedure", "final_CMD",
-                           "location"]
+                           "location", "interactive"]
 
         bands = []
         for key in params:
@@ -140,6 +142,11 @@ class Cluster(object):
 
             # convert fluxes to magnitudes if need be
             if params["type"] == "flux":
+
+                if band_data == 0:
+                    # give it a slightly negative flux, which will be
+                    # interpreted as a bad mag
+                    band_data = -0.1
                 # calculate magerr first, since we need to use the flux
                 band_data_err = Cluster.percent_flux_errors_to_mag_errors(
                     band_data_err / band_data)
@@ -198,12 +205,14 @@ class Cluster(object):
         :param percent_flux_error: percentage flux error
         :return: magnitude error corresponding to the percentage flux error.
         """
+        if percent_flux_error < 0:
+            return 99
         return (2.5 / np.log(10)) * percent_flux_error
 
     def __repr__(self):
         return self.name
 
-    def fit_z(self, params):
+    def fit_z(self, params, color):
         """
         Find the redshift of the cluster by matching its red sequence the
         red sequence models produced by EzGal. This is the main
@@ -211,13 +220,17 @@ class Cluster(object):
 
         :param params: Dictionary full of the user's parameters for the
                        program from the config file.
+        :param color: Color combination use to fit the RS.
         :return: redshift of the cluster. Will be an AsymmetricData
                  instance, to account for the possibility of different upper
                  and lower limits on the redshift.
         """
 
-        # initialize a list of figures, that will be filled as we go along.
-        figures = []
+        # turn the color information into band info
+        blue_band, red_band = color.split("-")
+
+        # get the configuration dictionary
+        cfg = config.cfg_matches[color]
 
         # do a location cut, to only focus on galaxies near the center of
         # the image.
@@ -226,116 +239,118 @@ class Cluster(object):
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plt.subplots(figsize=(9, 6))
-            ax = plotting.cmd(self, ax)
-            vc_ax, vmax = plotting.add_vega_labels(ax)
-            plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax])
-            figures.append(fig)
+            ax = plotting.cmd(self, ax, color, cfg)
+            vc_ax, vmax = plotting.add_vega_labels(ax, blue_band,
+                                                   red_band, cfg)
+            plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
+                                    color=color)
+            self.figures.append(fig)
 
-        # Do a quick and dirty initial redshift fitting, to get a starting
-        # point.
-        self.z = self._initial_z()
-
-        # If the user wants to see this initial fit, plot it.
-        if params["fitting_procedure"] == "1":
-            # set up the plot
-            fig, ax = plt.subplots(figsize=(9, 6))
-            ax = plotting.cmd(self, ax)
-            plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
-            plotting.add_redshift(ax, self.z.value)
-            figures.append(fig)
-
-        # set cuts that will be used in the successive iterations to refine
-        # the fit of the red sequence
-        bluer_color_cut = [0.2, 0.1]
-        redder_color_cut = [0.2, 0.1]
-        brighter_mag_cut = 2.5
-        dimmer_mag_cut = 0.0
-
-        # do iterations of fitting, each with a progressively smaller
-        # color cut, which is designed to hone in on the red sequence.
-        for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
-            # set red sequence members based on the cuts
-            self._set_rs_membership(self.z.value, bluer_cut,
-                                    redder_cut, brighter_mag_cut,
-                                    dimmer_mag_cut)
-
-            # do the chi-squared fitting.
-            self.z = self._chi_square_w_error()
-
-            # if the user wants, plot the procedure
-            if params["fitting_procedure"] == "1":
-                fig, ax = plt.subplots(figsize=(9, 6))
-                ax = plotting.cmd(self, ax)
-                plotting.add_vega_labels(ax)
-                plotting.add_one_model(ax, self.models[self.z.value], "k")
-                plotting.add_redshift(ax, self.z.value)
-                figures.append(fig)
-
-        # See if there is a cloud, rather than a red sequence.
-        self._clean_rs_check()
-
-        # Set the final red sequence members
-        self._set_rs_membership(self.z.value, .2, .2, 2.0, 0.6)
-
-        # and do the location check based on these RS values
-        self._location_check()
-
-        # we now have a final answer for the redshift of the cluster.
-        # if the user wants, plot it up
-        if params["final_CMD"] == "1":
-            # set up the plot
-            fig, ax = plt.subplots(figsize=(9, 6))
-            ax = plotting.cmd(self, ax)
-            plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
-            # I want to plot both the low and high models, so get those zs
-            high_z = self.z.value + self.z.upper_error
-            low_z = self.z.value - self.z.lower_error
-
-            plotting.add_one_model(ax, self.models[high_z], "0.6")
-            plotting.add_one_model(ax, self.models[low_z], "0.6")
-            plotting.add_redshift(ax, self.z)
-
-            figures.append(fig)
-
-        # If the user wants, plot the location of the cluster and RS members.
-        if params["location"] == "1":
-            fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
-            ax = plotting.location(self, ax)
-            plotting.add_redshift(ax, self.z)
-            figures.append(fig)
-
-
-
-        if params["interactive"] == "1":
-            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
-                                           tight_layout=True)
-            ax1 = plotting.cmd(self, ax1)
-            plotting.add_vega_labels(ax1)
-            plotting.add_redshift(ax1, self.z)
-            plotting.add_one_model(ax1, self.models[self.z.value], "k")
-            plotting.add_flags(ax1, self.flags)
-
-            ax2 = plotting.location(self, ax2)
-            plotting.add_redshift(ax2, self.z)
-            plotting.add_flags(ax2, self.flags)
-
-            plt.show(block=False)
-            flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
-            plt.close(fig)
-
-            if flags == "i":
-                save_as_one_pdf(figures, params["plot_directory"] +
-                        self.name + ".pdf")
-            elif flags == "f":
-                self.flags += 8
-
-            for fig in figures:
-                plt.close(fig)
-        else:
-            save_as_one_pdf(figures, params["plot_directory"] +
-                        self.name + ".pdf")
+        # # Do a quick and dirty initial redshift fitting, to get a starting
+        # # point.
+        # self.z = self._initial_z()
+        #
+        # # If the user wants to see this initial fit, plot it.
+        # if params["fitting_procedure"] == "1":
+        #     # set up the plot
+        #     fig, ax = plt.subplots(figsize=(9, 6))
+        #     ax = plotting.cmd(self, ax)
+        #     plotting.add_vega_labels(ax)
+        #     plotting.add_one_model(ax, self.models[self.z.value], "k")
+        #     plotting.add_redshift(ax, self.z.value)
+        #     figures.append(fig)
+        #
+        # # set cuts that will be used in the successive iterations to refine
+        # # the fit of the red sequence
+        # bluer_color_cut = [0.2, 0.1]
+        # redder_color_cut = [0.2, 0.1]
+        # brighter_mag_cut = 2.5
+        # dimmer_mag_cut = 0.0
+        #
+        # # do iterations of fitting, each with a progressively smaller
+        # # color cut, which is designed to hone in on the red sequence.
+        # for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
+        #     # set red sequence members based on the cuts
+        #     self._set_rs_membership(self.z.value, bluer_cut,
+        #                             redder_cut, brighter_mag_cut,
+        #                             dimmer_mag_cut)
+        #
+        #     # do the chi-squared fitting.
+        #     self.z = self._chi_square_w_error()
+        #
+        #     # if the user wants, plot the procedure
+        #     if params["fitting_procedure"] == "1":
+        #         fig, ax = plt.subplots(figsize=(9, 6))
+        #         ax = plotting.cmd(self, ax)
+        #         plotting.add_vega_labels(ax)
+        #         plotting.add_one_model(ax, self.models[self.z.value], "k")
+        #         plotting.add_redshift(ax, self.z.value)
+        #         figures.append(fig)
+        #
+        # # See if there is a cloud, rather than a red sequence.
+        # self._clean_rs_check()
+        #
+        # # Set the final red sequence members
+        # self._set_rs_membership(self.z.value, .2, .2, 2.0, 0.6)
+        #
+        # # and do the location check based on these RS values
+        # self._location_check()
+        #
+        # # we now have a final answer for the redshift of the cluster.
+        # # if the user wants, plot it up
+        # if params["final_CMD"] == "1":
+        #     # set up the plot
+        #     fig, ax = plt.subplots(figsize=(9, 6))
+        #     ax = plotting.cmd(self, ax)
+        #     plotting.add_vega_labels(ax)
+        #     plotting.add_one_model(ax, self.models[self.z.value], "k")
+        #     # I want to plot both the low and high models, so get those zs
+        #     high_z = self.z.value + self.z.upper_error
+        #     low_z = self.z.value - self.z.lower_error
+        #
+        #     plotting.add_one_model(ax, self.models[high_z], "0.6")
+        #     plotting.add_one_model(ax, self.models[low_z], "0.6")
+        #     plotting.add_redshift(ax, self.z)
+        #
+        #     figures.append(fig)
+        #
+        # # If the user wants, plot the location of the cluster and RS members.
+        # if params["location"] == "1":
+        #     fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
+        #     ax = plotting.location(self, ax)
+        #     plotting.add_redshift(ax, self.z)
+        #     figures.append(fig)
+        #
+        #
+        #
+        # if params["interactive"] == "1":
+        #     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
+        #                                    tight_layout=True)
+        #     ax1 = plotting.cmd(self, ax1)
+        #     plotting.add_vega_labels(ax1)
+        #     plotting.add_redshift(ax1, self.z)
+        #     plotting.add_one_model(ax1, self.models[self.z.value], "k")
+        #     plotting.add_flags(ax1, self.flags)
+        #
+        #     ax2 = plotting.location(self, ax2)
+        #     plotting.add_redshift(ax2, self.z)
+        #     plotting.add_flags(ax2, self.flags)
+        #
+        #     plt.show(block=False)
+        #     flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
+        #     plt.close(fig)
+        #
+        #     if flags == "i":
+        #         save_as_one_pdf(figures, params["plot_directory"] +
+        #                 self.name + ".pdf")
+        #     elif flags == "f":
+        #         self.flags += 8
+        #
+        #     for fig in figures:
+        #         plt.close(fig)
+        # else:
+        #     save_as_one_pdf(figures, params["plot_directory"] +
+        #                 self.name + ".pdf")
 
 
 
@@ -370,8 +385,8 @@ class Cluster(object):
             if source.dist is None:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
-                source.dist = math.sqrt((source.ra - middle_ra)**2 +
-                                        (source.dec - middle_dec)**2) * 3600
+                source.dist = np.sqrt((source.ra - middle_ra)**2 +
+                                      (source.dec - middle_dec)**2) * 3600
 
             if source.dist < radius*60.0:  # convert radius to arcsec
                 source.near_center = True

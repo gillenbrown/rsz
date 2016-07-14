@@ -4,9 +4,12 @@
 */calculating_slopes/
 */MaDCoWS_test/
 */SPT/
-*/example/plots/*.pdf
-*/example/rs_catalogs/*.cat
-*/example/results.txt
+example/plots/*.pdf
+example/rs_catalogs/*.cat
+example/irac_plots
+example/rz_plots
+example/rsz_rz.param
+example/rsz_irac.param
 *.pyc
 */correction/
 

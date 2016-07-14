@@ -24,7 +24,7 @@
 # -----------------------------------------------------------------------------
 
 catalog_directory = catalogs/
-extension = .test
+extension = .cat
 plot_directory = plots/
 results_file = results.txt
 rs_catalog_dir = rs_catalogs/
@@ -103,3 +103,5 @@ CMD = 1
 fitting_procedure = 1
 final_CMD = 1
 location = 1
+
+interactive = 0
