@@ -203,7 +203,7 @@ def main():
         # make the cluster, and fit the redshift
         cl = cluster.Cluster(cat_path, params)
         for color in fit_combos:
-            cl.fit_z(params, color)
+            cl.fit_z(params, config.cfg_matches[color])
 
         cluster.save_as_one_pdf(cl.figures, params["plot_directory"] + os.sep +
                                 cl.name + ".pdf")

@@ -27,7 +27,7 @@ class Cluster(object):
 
         # I'll initialize empty source list, that will be filled as we go
         self.sources_list = []
-        self.z = None
+        self.z = dict()
         self.flags = 0
 
         self.figures = []
@@ -212,7 +212,7 @@ class Cluster(object):
     def __repr__(self):
         return self.name
 
-    def fit_z(self, params, color):
+    def fit_z(self, params, cfg):
         """
         Find the redshift of the cluster by matching its red sequence the
         red sequence models produced by EzGal. This is the main
@@ -226,12 +226,6 @@ class Cluster(object):
                  and lower limits on the redshift.
         """
 
-        # turn the color information into band info
-        blue_band, red_band = color.split("-")
-
-        # get the configuration dictionary
-        cfg = config.cfg_matches[color]
-
         # do a location cut, to only focus on galaxies near the center of
         # the image.
         self._location_cut(1.5)
@@ -239,17 +233,16 @@ class Cluster(object):
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plt.subplots(figsize=(9, 6))
-            ax = plotting.cmd(self, ax, color, cfg)
-            vc_ax, vmax = plotting.add_vega_labels(ax, blue_band,
-                                                   red_band, cfg)
+            ax = plotting.cmd(self, ax, cfg["color"], cfg)
+            vc_ax, vmax = plotting.add_vega_labels(ax, cfg)
             plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
-                                    color=color)
+                                    cfg=cfg)
             self.figures.append(fig)
 
-        # # Do a quick and dirty initial redshift fitting, to get a starting
-        # # point.
-        # self.z = self._initial_z()
-        #
+        # Do a quick and dirty initial redshift fitting, to get a starting
+        # point.
+        self.z[cfg["color"]] = self._initial_z(cfg)
+
         # # If the user wants to see this initial fit, plot it.
         # if params["fitting_procedure"] == "1":
         #     # set up the plot
@@ -352,8 +345,6 @@ class Cluster(object):
         #     save_as_one_pdf(figures, params["plot_directory"] +
         #                 self.name + ".pdf")
 
-
-
     def _location_cut(self, radius):
         """
         Does a location cut on the galaxies in the image.
@@ -393,7 +384,7 @@ class Cluster(object):
             else:
                 source.near_center = False
 
-    def _initial_z(self):
+    def _initial_z(self, cfg):
         """
         Find a decent initial redshift estimate, based on the number of
         galaxies near each model.
@@ -408,7 +399,7 @@ class Cluster(object):
 
         # Get models with a large spacing, since we don't need a lot of
         # accuracy here.
-        models = model.model_dict(0.05)
+        models = model.model_dict(0.05)[cfg["color"]]
 
         # set placeholder values that will be replaced as we go
         max_nearby = -999
@@ -424,11 +415,19 @@ class Cluster(object):
             mag_point = this_model.mag_point
             for source in self.sources_list:
                 if source.near_center:
+                    source_mag = source.mags[cfg["red_band"]].value
+                    source_color = source.colors[cfg["color"]].value
                     # get the expected RS color for a galaxy of this magnitude
-                    color = this_model.rs_color(source.ch2.value)
+                    rs_color = this_model.rs_color(source.mags[cfg["red_band"]].value)
+
+                    # then determine the limits for a valid RS galaxy
+                    bright_mag = mag_point - cfg["initial_mag"][0]
+                    faint_mag = mag_point + cfg["initial_mag"][1]
+                    blue_color = rs_color - cfg["initial_color"][0]
+                    red_color = rs_color + cfg["initial_color"][1]
                     # see if it passes a color and magnitude cut
-                    if (mag_point - 2.0 < source.ch2 < mag_point) and \
-                       (color - 0.1 < source.ch1_m_ch2 < color + 0.1):
+                    if (bright_mag < source_mag < faint_mag) and \
+                       (blue_color < source_color < red_color):
                         # if it did pass, note that it is nearby
                         nearby += 1
 

@@ -60,7 +60,7 @@ def cmd(cluster, ax, color, cfg):
     return ax
 
 
-def add_vega_labels(ax, blue_band, red_band, cfg):
+def add_vega_labels(ax, cfg):
     """ Adds labels with magnitudes in Vega to the CMD.
 
     :param ax: axis to add Vega mags to
@@ -73,14 +73,14 @@ def add_vega_labels(ax, blue_band, red_band, cfg):
 
     # we store our conversion factors in the form AB_mag = Vega_mag + factor,
     # so to get Vega mags we subtract our factor
-    x_min = cfg["plot_lims"][0] - config.vega_to_ab[red_band]
-    x_max = cfg["plot_lims"][1] - config.vega_to_ab[red_band]
+    x_min = cfg["plot_lims"][0] - config.vega_to_ab[cfg["blue_band"]]
+    x_max = cfg["plot_lims"][1] - config.vega_to_ab[cfg["red_band"]]
 
     # y is a little trickier, we need to convert both to Vega
-    y_min = cfg["plot_lims"][2] - (config.vega_to_ab[blue_band] -
-                                   config.vega_to_ab[red_band])
-    y_max = cfg["plot_lims"][3] - (config.vega_to_ab[blue_band] -
-                                   config.vega_to_ab[red_band])
+    y_min = cfg["plot_lims"][2] - (config.vega_to_ab[cfg["blue_band"]] -
+                                   config.vega_to_ab[cfg["red_band"]])
+    y_max = cfg["plot_lims"][3] - (config.vega_to_ab[cfg["blue_band"]] -
+                                   config.vega_to_ab[cfg["red_band"]])
 
     # we need to make a second axis
     vega_color_ax = ax.twinx()
@@ -88,17 +88,18 @@ def add_vega_labels(ax, blue_band, red_band, cfg):
     # set limits and label the new axis, using Vega mags.
     vega_mag_ax.set_xlim(x_min, x_max)
     vega_color_ax.set_ylim(y_min, y_max)
-    vega_mag_ax.set_xlabel("{}  [Vega]".format(red_band))
+    vega_mag_ax.set_xlabel("{}  [Vega]".format(cfg["red_band"]))
     vega_mag_ax.xaxis.set_label_position("top")
     vega_mag_ax.xaxis.tick_top()
-    vega_color_ax.set_ylabel("{} - {}  [Vega]".format(blue_band, red_band))
+    vega_color_ax.set_ylabel("{} - {}  [Vega]".format(cfg["blue_band"],
+                                                      cfg["red_band"]))
     vega_color_ax.yaxis.set_label_position("right")
     vega_color_ax.yaxis.tick_right()
 
     return vega_color_ax, vega_mag_ax
 
 
-def add_all_models(fig, ax, steal_axs, color):
+def add_all_models(fig, ax, steal_axs, cfg):
     """
     Adds the RS models to the given axis, adding a colorbar to code redshift.
 
@@ -115,7 +116,7 @@ def add_all_models(fig, ax, steal_axs, color):
     """
 
     # get the model predictions, with fairly large spacing.
-    models = model.model_dict(0.05)[color]
+    models = model.model_dict(0.05)[cfg["color"]]
 
     # set the colormap, so we can color code lines by redshift
     spectral = plt.get_cmap("RdYlBu_r")

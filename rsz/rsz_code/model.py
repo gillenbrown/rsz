@@ -190,9 +190,10 @@ def model_dict(spacing):
         band_1_idx = filters.index(band_1)
         band_2_idx = filters.index(band_2)
 
+        this_config = config.cfg_matches[color]
+
         for z, m in zip(decimal_zs, mags):
             # only do things if the redshift is in the right range
-            this_config = config.cfg_matches[color]
             if this_config["z_min"] <= z <= this_config["z_max"]:
                 mag_1 = m[band_1_idx]  # split the magnitudes into bands
                 mag_2 = m[band_2_idx]
@@ -200,6 +201,7 @@ def model_dict(spacing):
                 # object is initialized
                 this_model = RSModel(z, mag_1, mag_2, this_config)
                 rs_models[color][this_model.z] = this_model
+
 
     return rs_models
 
