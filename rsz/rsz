@@ -54,6 +54,9 @@ def parse_config():
     for path in paths:
         params[path] = os.path.abspath(params[path])
 
+    # turn things into the right data type
+    params["mag_zeropoint"] = float(params["mag_zeropoint"])
+
     return params
 
 
@@ -208,8 +211,8 @@ def main():
         cluster.save_as_one_pdf(cl.figures, params["plot_directory"] + os.sep +
                                 cl.name + ".pdf")
         # if the user wants to make rs catalogs, do it
-        # if params["rs_catalog_dir"] != '-99':
-        #     cl.rs_catalog(params)
+        if params["rs_catalog_dir"] != '-99':
+            cl.rs_catalog(params)
 
         # make the output catalog
         # add_to_catalog(output_file, cl)

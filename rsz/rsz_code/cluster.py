@@ -32,6 +32,8 @@ class Cluster(object):
 
         self.figures = []
 
+        self.interesting = 0
+
         # then read in the objects in the catalog
         self.read_catalog(filepath, params)
 
@@ -152,7 +154,7 @@ class Cluster(object):
                     band_data_err / band_data)
                 # print band_data
                 band_data = Cluster.flux_to_mag(band_data,
-                                                float(params["mag_zeropoint"]))
+                                                params["mag_zeropoint"])
 
 
             # Convert to AB mags if needed. If we used flux, they are already in AB
@@ -194,6 +196,18 @@ class Cluster(object):
         if flux <= 0:
             return -99
         return -2.5 * np.log10(flux) + zeropoint
+
+    @staticmethod
+    def mag_to_flux(mag, zeropoint):
+        if mag < 0:
+            return -99
+        return 10 ** ((zeropoint - mag) / 2.5)
+
+    @staticmethod
+    def mag_errors_to_flux_errors(mag_error, flux):
+        if flux < 0:
+            return -99
+        return (flux * np.log(10) * mag_error) / 2.5
 
     @staticmethod
     def percent_flux_errors_to_mag_errors(percent_flux_error):
@@ -352,6 +366,8 @@ class Cluster(object):
 
             if flags == "f":
                 self.flags[cfg["color"]] += 8
+            elif flags == "i":
+                self.interesting = 1
 
     def _location_cut(self, radius):
         """
@@ -732,69 +748,70 @@ class Cluster(object):
         except ZeroDivisionError:
             self.flags[color] += 1
 
-    def rs_catalog(self, params, cfg):
+    def rs_catalog(self, params):
         """ Writes a catalog of all the objects, indicating the RS members.
 
-        :returns: none, but the catalog is saved to disk.
+        :returns: none, but the catalog is saved.
         """
 
-        filepath = params["rs_catalog_dir"] + self.name + ".rs.cat"
+        filepath = params["rs_catalog_dir"] + os.sep + self.name + ".rs.cat"
+
+        # get the type of info, and make a header using that
+        d_type = params["type"]
+
+        header = "# {:<12s} {:<12s}".format("ra", "dec")
+
+        # also make a general formatters that will be used later
+        coords_formatter = "  {:<12.7f} {:<12.7f}"
+
+        phot_formatter = " {:<15.3f} {:<15.3f}"
+        for band in self.sources_list[0].mags:
+            band = band.replace("sloan_", "")
+
+            header += " {:<15s} {:<15s}".format(band + "_" + d_type,
+                                            band + "_" + d_type + "_err")
+
+        center_formatter = " {:<7}"
+        header += center_formatter.format("center")
+
+        rs_formatter = " {:<10}"
+        for color in self.z:
+            header += rs_formatter.format(color.replace("sloan_", "") + "_RS")
 
         with open(filepath, "w") as cat:
             # I want the headers to line up over the data
-            header = "# {:12s} {:12s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
-                     "{:10s} {:6s} {:2s}\n".format("ra", "dec", "ch1", "ech1",
-                                             "ch2", "ech2", "ch1-ch2",
-                                             "ech1-ch2", "center", "RS")
-            cat.write(header)
+            cat.write(header + "\n")
+
 
             for source in self.sources_list:
-                if source.RS_member[cfg["color"]]:
-                    rs = 1
-                else:
-                    rs = 0
+                line = coords_formatter.format(source.ra, source.dec)
+                # TODO: test this with mags and flux
 
-                if source.near_center:
-                    center = 1
-                else:
-                    center = 0
-
-                if params["mags"] == "vega":
-                    # convert output to Vega mags
-                    out_ch1 = source.ch1.value - 2.787
-                    out_ch2  = source.ch2.value - 3.260
-                    out_ch1_m_ch2 = source.ch1_m_ch2.value - 2.787 + 3.260
-                else:  # leave output mags in AB
-                    out_ch1 = source.ch1.value
-                    out_ch2 = source.ch2.value
-                    out_ch1_m_ch2 = source.ch1_m_ch2.value
-                out_ch1_err = source.ch1.error
-                out_ch2_err = source.ch2.error
-                out_ch1_m_ch2_err = source.ch1_m_ch2.error
-
-                def fix_data(data_imem):
-                    if abs(data_imem) > 50:
-                        return -99
+                for band in source.mags:
+                    mag = source.mags[band].value
+                    magerr = source.mags[band].error
+                    if d_type == "mags":
+                        if params["mag_system"] == "ab":
+                            line += phot_formatter.format(mag, magerr)
+                        else:
+                            mag -= config.vega_to_ab[band]  # convert to Vega
+                            line += phot_formatter.format(mag, magerr)
                     else:
-                        return data_imem
+                        flux = self.mag_to_flux(mag, params["mag_zeropoint"])
+                        fluxerr = self.mag_errors_to_flux_errors(magerr, flux)
 
-                out_ch1 = fix_data(out_ch1)
-                out_ch2 = fix_data(out_ch2)
-                out_ch1_m_ch2 = fix_data(out_ch1_m_ch2)
-                out_ch1_err = fix_data(out_ch1_err)
-                out_ch2_err = fix_data(out_ch2_err)
-                out_ch1_m_ch2_err = fix_data(out_ch1_m_ch2_err)
+                        line += phot_formatter.format(flux, fluxerr)
 
-                cat.write("  {:<12.7f} {:<12.7f} {:<10.2f} {:<10.3f} {:<10.2f} {:<10.3f} {:<10.2f} "
-                          "{:<10.3f} {:<6d} {:<2d}\n".format(source.ra,
-                                                  source.dec,
-                                                  out_ch1,
-                                                  out_ch1_err,
-                                                  out_ch2,
-                                                  out_ch2_err,
-                                                  out_ch1_m_ch2,
-                                                  out_ch1_m_ch2_err,
-                                                  center, rs))
+                # add whether or not it's centered
+                line += center_formatter.format(source.near_center)
+
+                # then add RS information
+                for color in self.z:
+                    line += rs_formatter.format(source.RS_member[color])
+
+                line += "\n"
+                cat.write(line)
+
 
 
 def save_as_one_pdf(figs, filename):
