@@ -209,7 +209,7 @@ def add_flags(ax, flags):
             bbox=dict(facecolor="w", linewidth=0.0))
 
 
-def location(cluster, ax):
+def location(cluster, ax, color):
     """Plot the location of all the sources in the cluster, with RS members
     highlighted.
 
@@ -225,7 +225,7 @@ def location(cluster, ax):
     center_ra, center_dec = [], []
     rest_ra, rest_dec = [], []
     for source in cluster.sources_list:
-        if source.RS_member:
+        if source.RS_member[color]:
             rs_member_ra.append(source.ra)
             rs_member_dec.append(source.dec)
         elif source.near_center:
@@ -238,13 +238,13 @@ def location(cluster, ax):
     ax.scatter(center_ra, center_dec, c="k", linewidth=0,
                label="Location Cut")
     ax.scatter(rs_member_ra, rs_member_dec, c="r", linewidth=0,
-               label="Red Sequence")
+               label="Red Sequence\n{} Selected".format(color))
 
     # add labels and clean up the plot
     ax.set_xlabel("ra")
     ax.set_ylabel("dec")
-    legend = ax.legend(loc=4)
-    legend.get_frame().set_linewidth(0.5)
+    legend = ax.legend(loc=4, scatterpoints=1)
+    legend.get_frame().set_linewidth(0)
     # stop Matplotlib from making the axis have a weird offset, which is hard
     # to understand.
     ax.get_xaxis().get_major_formatter().set_useOffset(False)

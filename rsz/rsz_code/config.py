@@ -39,6 +39,8 @@ ch1_m_ch2["bluer_color_cut"] = [0.2, 0.1]
 ch1_m_ch2["redder_color_cut"] = [0.2, 0.1]
 ch1_m_ch2["brighter_mag_cut"] = 2.5
 ch1_m_ch2["dimmer_mag_cut"] = 0
+ch1_m_ch2["final_rs_mag"] = [2.0, 0.6]  # brighter, fainter
+ch1_m_ch2["final_rs_color"] = [0.2, 0.2]  # bluer, redder
 
 
 
@@ -67,6 +69,8 @@ sloan_r_m_sloan_z["bluer_color_cut"] = [0.25, 0.225]
 sloan_r_m_sloan_z["redder_color_cut"] = [0.4, 0.3]
 sloan_r_m_sloan_z["brighter_mag_cut"] = 1.4
 sloan_r_m_sloan_z["dimmer_mag_cut"] = 0.6
+sloan_r_m_sloan_z["final_rs_mag"] = [2.0, 0.6]  # brighter, fainter
+sloan_r_m_sloan_z["final_rs_color"] = [0.35, 0.35]  # bluer, redder
 
 cfg_matches = {"ch1-ch2": ch1_m_ch2,
                "sloan_r-sloan_z": sloan_r_m_sloan_z}

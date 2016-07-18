@@ -28,7 +28,7 @@ class Cluster(object):
         # I'll initialize empty source list, that will be filled as we go
         self.sources_list = []
         self.z = dict()
-        self.flags = 0
+        self.flags = dict()
 
         self.figures = []
 
@@ -230,6 +230,9 @@ class Cluster(object):
         # the image.
         self._location_cut(1.5)
 
+        # we need to initialize the flags for the cluster
+        self.flags[cfg["color"]] = 0
+
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plt.subplots(figsize=(9, 6))
@@ -262,7 +265,10 @@ class Cluster(object):
                                          cfg["redder_color_cut"]):
             # set red sequence members based on the cuts
             self._set_rs_membership(self.z[cfg["color"]].value,
-                                    bluer_cut, redder_cut, cfg)
+                                    bluer_cut, redder_cut,
+                                    cfg["brighter_mag_cut"],
+                                    cfg["dimmer_mag_cut"],
+                                    cfg)
 
             # do the chi-squared fitting.
             self.z[cfg["color"]] = self._chi_square_w_error(cfg)
@@ -277,41 +283,53 @@ class Cluster(object):
                                        "k")
                 plotting.add_redshift(ax, self.z[cfg["color"]].value)
                 self.figures.append(fig)
-        #
-        # # See if there is a cloud, rather than a red sequence.
-        # self._clean_rs_check()
-        #
-        # # Set the final red sequence members
-        # self._set_rs_membership(self.z.value, .2, .2, 2.0, 0.6)
-        #
-        # # and do the location check based on these RS values
-        # self._location_check()
-        #
-        # # we now have a final answer for the redshift of the cluster.
-        # # if the user wants, plot it up
-        # if params["final_CMD"] == "1":
-        #     # set up the plot
-        #     fig, ax = plt.subplots(figsize=(9, 6))
-        #     ax = plotting.cmd(self, ax)
-        #     plotting.add_vega_labels(ax)
-        #     plotting.add_one_model(ax, self.models[self.z.value], "k")
-        #     # I want to plot both the low and high models, so get those zs
-        #     high_z = self.z.value + self.z.upper_error
-        #     low_z = self.z.value - self.z.lower_error
-        #
-        #     plotting.add_one_model(ax, self.models[high_z], "0.6")
-        #     plotting.add_one_model(ax, self.models[low_z], "0.6")
-        #     plotting.add_redshift(ax, self.z)
-        #
-        #     figures.append(fig)
-        #
-        # # If the user wants, plot the location of the cluster and RS members.
-        # if params["location"] == "1":
-        #     fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
-        #     ax = plotting.location(self, ax)
-        #     plotting.add_redshift(ax, self.z)
-        #     figures.append(fig)
-        #
+
+        # See if there is a cloud, rather than a red sequence.
+        self._clean_rs_check(cfg)
+
+        # Set the final red sequence members
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                cfg["final_rs_color"][0],
+                                cfg["final_rs_color"][1],
+                                cfg["final_rs_mag"][0],
+                                cfg["final_rs_mag"][0],
+                                cfg)
+
+        # and do the location check based on these RS values
+        self._location_check(cfg["color"])
+
+        # we now have a final answer for the redshift of the cluster.
+        # if the user wants, plot it up
+        if params["final_CMD"] == "1":
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax, cfg)
+            plotting.add_vega_labels(ax, cfg)
+            plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                  [self.z[cfg["color"]].value],
+                                  "k")
+            # I want to plot both the low and high models, so get those zs
+            high_z = self.z[cfg["color"]].value + \
+                     self.z[cfg["color"]].upper_error
+            low_z = self.z[cfg["color"]].value - \
+                    self.z[cfg["color"]].lower_error
+
+            plotting.add_one_model(ax, self.models[cfg["color"]][high_z],
+                                   "#AAAAAA")
+            plotting.add_one_model(ax, self.models[cfg["color"]][low_z],
+                                   "#AAAAAA")
+            plotting.add_redshift(ax, self.z[cfg["color"]])
+
+            self.figures.append(fig)
+
+
+            # If the user wants, plot the location of the cluster and RS members.
+            if params["location"] == "1":
+                fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
+                ax = plotting.location(self, ax, cfg["color"])
+                plotting.add_redshift(ax, self.z[cfg["color"]])
+                self.figures.append(fig)
+
         #
         #
         # if params["interactive"] == "1":
@@ -438,7 +456,7 @@ class Cluster(object):
         redshifts, nearbies = zip(*z_nearby_pairs)
 
         # check for the double red sequence
-        self._double_red_sequence(nearbies)
+        self._double_red_sequence(nearbies, cfg["color"])
 
         # Turn this into a data object, with errors that span the maximum
         # range, since we don't have a good feeling yet
@@ -447,7 +465,7 @@ class Cluster(object):
         z = data.AsymmetricData(best_z, up_error, low_error)
         return z
 
-    def _double_red_sequence(self, nearby):
+    def _double_red_sequence(self, nearby, color):
         """Checks for the possiblity of a double red sequence.
 
         Is to be used inside the initial_z funciton, since it uses the list of
@@ -483,9 +501,10 @@ class Cluster(object):
                 idx += 1
         # If there are 2 or more maxima, increment the flag.
         if num_local_maxima >= 2:
-            self.flags += 2
+            self.flags[color] += 2
 
-    def _set_rs_membership(self, redshift, bluer, redder, cfg):
+    def _set_rs_membership(self, redshift, bluer, redder,
+                           brighter, dimmer, cfg):
         """Set some sources to be RS members, based on color and mag cuts.
 
         :param redshift: redshift of the red sequence that these sources
@@ -527,8 +546,8 @@ class Cluster(object):
 
         rs_model = self.models[cfg["color"]][redshift]
         char_mag = rs_model.mag_point
-        dim_mag = char_mag + cfg["dimmer_mag_cut"]
-        bright_mag = char_mag - cfg["brighter_mag_cut"]
+        dim_mag = char_mag + dimmer
+        bright_mag = char_mag - brighter
 
         for source in self.sources_list:
             # get the color correspoinding to the red sequence at the ch2
@@ -618,7 +637,7 @@ class Cluster(object):
         return data.AsymmetricData(best_z, high_error, low_error)
         # TODO: that was a long function. Break it up somehow?
 
-    def _clean_rs_check(self):
+    def _clean_rs_check(self, cfg):
         """ Determine whether or not there is a clean red sequence.
 
         This works by counting the number of red sequence galaxies of the best
@@ -632,38 +651,42 @@ class Cluster(object):
         """
 
         # set cuts to be used each time
-        bluer = 0.1
-        redder = 0.1
-        brighter = 2.5
-        dimmer = 0.0
+        bluer = cfg["bluer_color_cut"][-1]
+        redder = cfg["redder_color_cut"][-1]
+        brighter = cfg["brighter_mag_cut"]
+        dimmer = cfg["dimmer_mag_cut"]
         # set the red sequence members for the accepted red sequence.
-        self._set_rs_membership(self.z.value, bluer=bluer, redder=redder,
-                                brighter=brighter, dimmer=dimmer)
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=bluer, redder=redder,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
         # count the RS members in the best fit
-        best_rs = self._count_galaxies()
+        best_rs = self._count_galaxies(cfg["color"])
 
         # set red sequence members to be in the color range 0.3 redder than
         # the best fit. It's weird that we subtract from bluer and add to
         # redder, but if you think of making it less blue and more red you can
         # convince yourself.
-        self._set_rs_membership(self.z.value, bluer=bluer-0.3,
-                                redder=redder+0.3, brighter=brighter,
-                                dimmer=dimmer)
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=bluer - 0.3, redder=redder + 0.3,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
         # again count the galaxies in this red sequence
-        red_rs = self._count_galaxies()
+        red_rs = self._count_galaxies(cfg["color"])
 
         # set red sequenc members to be a bluer red sequence
-        self._set_rs_membership(self.z.value, bluer=bluer+0.3,
-                                redder=redder-0.3, brighter=brighter,
-                                dimmer=dimmer)
-        blue_rs = self._count_galaxies()
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=bluer + 0.3, redder=redder - 0.3,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
+        blue_rs = self._count_galaxies(cfg["color"])
 
         # Compare the numbers in the 3 red sequences. Set the flag if the
         # number of galaxies in the best red sequence is less than twice
         # the sum of the two offset red sequences. The 2 times is arbitrary.
         # It was chosen to make things I thought looked bad have this flag.
         if ((red_rs + blue_rs) * 2.0) >= best_rs:
-            self.flags += 4
+            self.flags[cfg["color"]] += 4
 
     def _count_galaxies(self, color):
         """ Counts the number of red sequence galaxies near the center.
@@ -713,9 +736,9 @@ class Cluster(object):
 
             # raise the flag if the percent near the center isn't high enough.
             if near_rs_percent <= not_near_rs_percent * 1.75:
-                self.flags += 1
+                self.flags[color] += 1
         except ZeroDivisionError:
-            self.flags += 1
+            self.flags[color] += 1
 
     def rs_catalog(self, params, cfg):
         """ Writes a catalog of all the objects, indicating the RS members.
