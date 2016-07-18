@@ -13,7 +13,7 @@ import data
 import config
 
 
-def cmd(cluster, ax, color, cfg):
+def cmd(cluster, ax, cfg):
     """
     Plot a color-magnitude diagram for the cluster. Red sequence galaxies
     will be highlighted in red.
@@ -22,24 +22,24 @@ def cmd(cluster, ax, color, cfg):
     :return: figure AND axis objects for the plot
     """
 
-    blue_band, red_band = color.split("-")
-
     # throw out a few sources that don't need to be plotted.
     valid_sources = [source for source in cluster.sources_list if
                      source.near_center and
-                     (source.colors[color]).error < 0.2]
-
+                     (source.colors[cfg["color"]]).error < 0.2]
 
     # plot points one by one, so I don't have to make long lists for each
     # thing I want to plot. This is simpler, since I would need 6 lists.
     for source in valid_sources:
-        mag = source.mags[red_band].value
-        source_color = source.colors[color]
+        mag = source.mags[cfg["red_band"]].value
+        source_color = source.colors[cfg["color"]]
         # red sequence members will be colored red, while non RS galaxies
         # will be colored black.
-        if source.RS_member:
-            point_color = "r"
-        else:
+        try:  # if RS membership hasn't been created yet, the key wont exist
+            if source.RS_member[cfg["color"]]:
+                point_color = "r"
+            else:
+                point_color = "k"
+        except KeyError:
             point_color = "k"
 
         ax.errorbar(x=mag, y=source_color.value, yerr=source_color.error,
@@ -49,8 +49,8 @@ def cmd(cluster, ax, color, cfg):
     # label and clean up the axes
     ax.set_xlim(cfg["plot_lims"][0], cfg["plot_lims"][1])
     ax.set_ylim(cfg["plot_lims"][2], cfg["plot_lims"][3])
-    ax.set_xlabel("{}  [AB]".format(red_band))
-    ax.set_ylabel("{}  [AB]".format(color))
+    ax.set_xlabel("{}  [AB]".format(cfg["red_band"]))
+    ax.set_ylabel("{}  [AB]".format(cfg["color"]))
     ax.text(0.03, 0.97, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
@@ -119,13 +119,13 @@ def add_all_models(fig, ax, steal_axs, cfg):
     models = model.model_dict(0.05)[cfg["color"]]
 
     # set the colormap, so we can color code lines by redshift
-    spectral = plt.get_cmap("RdYlBu_r")
+    cmap = plt.get_cmap("RdYlBu_r")
     # some other decent colormaps: coolwarm, bwr, jet, RdBu_r, RdYlBu_r,
     # Spectral_r, rainbow
     # normalize the colormap
     c_norm = mplcol.Normalize(vmin=np.float64(min(models)),
                               vmax=np.float64(max(models)))
-    scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=spectral)
+    scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=cmap)
 
     for z in models:
         # use the scalar map to get the color for this redshift.

@@ -202,7 +202,6 @@ def model_dict(spacing):
                 this_model = RSModel(z, mag_1, mag_2, this_config)
                 rs_models[color][this_model.z] = this_model
 
-
     return rs_models
 
 

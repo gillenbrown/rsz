@@ -32,7 +32,7 @@ class Source(object):
         self.dist = dist
 
         self.near_center = False
-        self.RS_member = False
+        self.RS_member = dict()
 
     def _calculate_colors(self):
         """
@@ -49,7 +49,7 @@ class Source(object):
                 color = "{}-{}".format(band_1, band_2)
                 self.colors[color] = self.mags[band_1] - self.mags[band_2]
 
-    def rs_membership(self, color, blue, red, bright, faint):
+    def rs_membership(self, blue, red, bright, faint, color, red_band):
         """Mark sources as red sequence members if they pass the given cuts.
 
         Sources will be marked as red sequence members if they have a color
@@ -64,10 +64,9 @@ class Source(object):
         :param faint: dimmest magnitude "" "" "" "" "" "" ""
         :return: None, but some sources will be marked as RS members.
         """
-        red_band = color.split("-")[1]
         if blue < self.colors[color] < red and \
                 bright < self.mags[red_band] < faint and \
                 self.colors[color].error < 0.2:
-            self.RS_member = True
+            self.RS_member[color] = True
         else:
-            self.RS_member = False
+            self.RS_member[color] = False

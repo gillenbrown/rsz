@@ -35,6 +35,10 @@ ch1_m_ch2["plot_lims"] = [18, 22, -1, 0.5]
 # color: how much bluer, then redder it can be
 ch1_m_ch2["initial_mag"] = [2.0, 0.0]
 ch1_m_ch2["initial_color"] = [0.1, 0.1]
+ch1_m_ch2["bluer_color_cut"] = [0.2, 0.1]
+ch1_m_ch2["redder_color_cut"] = [0.2, 0.1]
+ch1_m_ch2["brighter_mag_cut"] = 2.5
+ch1_m_ch2["dimmer_mag_cut"] = 0
 
 
 
@@ -59,6 +63,10 @@ sloan_r_m_sloan_z["plot_lims"] = [20, 23.5, 0, 3.5]
 # color: how much bluer, then redder it can be
 sloan_r_m_sloan_z["initial_mag"] = [2.0, 0.6]
 sloan_r_m_sloan_z["initial_color"] = [0.2, 0.2]
+sloan_r_m_sloan_z["bluer_color_cut"] = [0.25, 0.225]
+sloan_r_m_sloan_z["redder_color_cut"] = [0.4, 0.3]
+sloan_r_m_sloan_z["brighter_mag_cut"] = 1.4
+sloan_r_m_sloan_z["dimmer_mag_cut"] = 0.6
 
 cfg_matches = {"ch1-ch2": ch1_m_ch2,
                "sloan_r-sloan_z": sloan_r_m_sloan_z}

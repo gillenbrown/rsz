@@ -233,7 +233,7 @@ class Cluster(object):
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plt.subplots(figsize=(9, 6))
-            ax = plotting.cmd(self, ax, cfg["color"], cfg)
+            ax = plotting.cmd(self, ax, cfg)
             vc_ax, vmax = plotting.add_vega_labels(ax, cfg)
             plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
                                     cfg=cfg)
@@ -243,42 +243,40 @@ class Cluster(object):
         # point.
         self.z[cfg["color"]] = self._initial_z(cfg)
 
-        # # If the user wants to see this initial fit, plot it.
-        # if params["fitting_procedure"] == "1":
-        #     # set up the plot
-        #     fig, ax = plt.subplots(figsize=(9, 6))
-        #     ax = plotting.cmd(self, ax)
-        #     plotting.add_vega_labels(ax)
-        #     plotting.add_one_model(ax, self.models[self.z.value], "k")
-        #     plotting.add_redshift(ax, self.z.value)
-        #     figures.append(fig)
-        #
-        # # set cuts that will be used in the successive iterations to refine
-        # # the fit of the red sequence
-        # bluer_color_cut = [0.2, 0.1]
-        # redder_color_cut = [0.2, 0.1]
-        # brighter_mag_cut = 2.5
-        # dimmer_mag_cut = 0.0
-        #
-        # # do iterations of fitting, each with a progressively smaller
-        # # color cut, which is designed to hone in on the red sequence.
-        # for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
-        #     # set red sequence members based on the cuts
-        #     self._set_rs_membership(self.z.value, bluer_cut,
-        #                             redder_cut, brighter_mag_cut,
-        #                             dimmer_mag_cut)
-        #
-        #     # do the chi-squared fitting.
-        #     self.z = self._chi_square_w_error()
-        #
-        #     # if the user wants, plot the procedure
-        #     if params["fitting_procedure"] == "1":
-        #         fig, ax = plt.subplots(figsize=(9, 6))
-        #         ax = plotting.cmd(self, ax)
-        #         plotting.add_vega_labels(ax)
-        #         plotting.add_one_model(ax, self.models[self.z.value], "k")
-        #         plotting.add_redshift(ax, self.z.value)
-        #         figures.append(fig)
+        # If the user wants to see this initial fit, plot it.
+        if params["fitting_procedure"] == "1":
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax, cfg)
+            plotting.add_vega_labels(ax, cfg)
+            plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                  [self.z[cfg["color"]].value],
+                                   "k")
+            plotting.add_redshift(ax, self.z[cfg["color"]].value)
+            self.figures.append(fig)
+
+
+        # do iterations of fitting, each with a progressively smaller
+        # color cut, which is designed to hone in on the red sequence.
+        for bluer_cut, redder_cut in zip(cfg["bluer_color_cut"],
+                                         cfg["redder_color_cut"]):
+            # set red sequence members based on the cuts
+            self._set_rs_membership(self.z[cfg["color"]].value,
+                                    bluer_cut, redder_cut, cfg)
+
+            # do the chi-squared fitting.
+            self.z[cfg["color"]] = self._chi_square_w_error(cfg)
+
+            # if the user wants, plot the procedure
+            if params["fitting_procedure"] == "1":
+                fig, ax = plt.subplots(figsize=(9, 6))
+                ax = plotting.cmd(self, ax, cfg)
+                plotting.add_vega_labels(ax, cfg)
+                plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                      [self.z[cfg["color"]].value],
+                                       "k")
+                plotting.add_redshift(ax, self.z[cfg["color"]].value)
+                self.figures.append(fig)
         #
         # # See if there is a cloud, rather than a red sequence.
         # self._clean_rs_check()
@@ -487,7 +485,7 @@ class Cluster(object):
         if num_local_maxima >= 2:
             self.flags += 2
 
-    def _set_rs_membership(self, redshift, bluer, redder, brighter, dimmer):
+    def _set_rs_membership(self, redshift, bluer, redder, cfg):
         """Set some sources to be RS members, based on color and mag cuts.
 
         :param redshift: redshift of the red sequence that these sources
@@ -527,22 +525,23 @@ class Cluster(object):
         # get the model, it's characteristic magnitude, and then turn it
         # into magnitude limits bsed on the parameters passed in
 
-        rs_model = self.models[redshift]
+        rs_model = self.models[cfg["color"]][redshift]
         char_mag = rs_model.mag_point
-        dim_mag = char_mag + dimmer
-        bright_mag = char_mag - brighter
+        dim_mag = char_mag + cfg["dimmer_mag_cut"]
+        bright_mag = char_mag - cfg["brighter_mag_cut"]
 
         for source in self.sources_list:
             # get the color correspoinding to the red sequence at the ch2
             # magnitude of this particular source
-            char_color = rs_model.rs_color(source.ch2.value)
+            char_color = rs_model.rs_color(source.mags[cfg["red_band"]].value)
             # turn it into color limits based on parameters passed in
             red_color = char_color + redder
             blue_color = char_color - bluer
             # a function in the source class does the actual marking
-            source.rs_membership(blue_color, red_color, bright_mag, dim_mag)
+            source.rs_membership(blue_color, red_color, bright_mag, dim_mag,
+                                 cfg["color"], cfg["red_band"])
 
-    def _chi_square_w_error(self):
+    def _chi_square_w_error(self, cfg):
         """Does chi-squared fitting, and returns the best fit value and the
         1 sigma error.
 
@@ -556,8 +555,8 @@ class Cluster(object):
 
         # we only want to do the fitting on those near the center, and those
         #  that are in our tentative RS.
-        to_fit = [source for source in self.sources_list if source.RS_member
-                  and source.near_center]
+        to_fit = [source for source in self.sources_list
+                  if source.RS_member[cfg["color"]] and source.near_center]
 
         # if there isn't anything to fit to, keep the initial z
         if len(to_fit) == 0:
@@ -568,14 +567,14 @@ class Cluster(object):
         redshifts = []
 
         # test each model
-        for z in sorted(self.models):
+        for z in sorted(self.models[cfg["color"]]):
             chi_sq = 0  # reset the chi squared value for this model
-            this_model = self.models[z]
+            this_model = self.models[cfg["color"]][z]
             for source in to_fit:
                 # get the model points, then compare that with the data
-                model_color = this_model.rs_color(source.ch2.value)
-                color = source.ch1_m_ch2.value
-                error = source.ch1_m_ch2.error
+                model_color = this_model.rs_color(source.mags[cfg["red_band"]].value)
+                color = source.colors[cfg["color"]].value
+                error = source.colors[cfg["color"]].error
                 chi_sq += ((model_color - color)/error)**2
 
             # reduce the chi square values
@@ -666,7 +665,7 @@ class Cluster(object):
         if ((red_rs + blue_rs) * 2.0) >= best_rs:
             self.flags += 4
 
-    def _count_galaxies(self):
+    def _count_galaxies(self, color):
         """ Counts the number of red sequence galaxies near the center.
 
         :return: number of red sequence galaxies that are near the center.
@@ -675,11 +674,11 @@ class Cluster(object):
         """
         count = 0
         for source in self.sources_list:
-            if source.near_center and source.RS_member:
+            if source.near_center and source.RS_member[color]:
                 count += 1
         return float(count)
 
-    def _location_check(self):
+    def _location_check(self, color):
         """Looks to see if the red sequence galaxies are concentrated in the
         middle. If they are not, this will raise a flag.
 
@@ -697,14 +696,14 @@ class Cluster(object):
                                        if source.near_center]))
         rs_near_center = float(len([source for source in self.sources_list
                                     if source.near_center and
-                                    source.RS_member]))
+                                    source.RS_member[color]]))
 
         total_not_near_center = float(len([source for source in
                                            self.sources_list if
                                            not source.near_center]))
         rs_not_near_center = float(len([source for source in self.sources_list
                                         if not source.near_center and
-                                        source.RS_member]))
+                                        source.RS_member[color]]))
 
         # Calculate the percent of sources that are red sequence members both
         # near and far from the center.
@@ -718,7 +717,7 @@ class Cluster(object):
         except ZeroDivisionError:
             self.flags += 1
 
-    def rs_catalog(self, params):
+    def rs_catalog(self, params, cfg):
         """ Writes a catalog of all the objects, indicating the RS members.
 
         :returns: none, but the catalog is saved to disk.
@@ -735,7 +734,7 @@ class Cluster(object):
             cat.write(header)
 
             for source in self.sources_list:
-                if source.RS_member:
+                if source.RS_member[cfg["color"]]:
                     rs = 1
                 else:
                     rs = 0
