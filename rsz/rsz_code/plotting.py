@@ -241,8 +241,8 @@ def location(cluster, ax, color):
                label="Red Sequence\n{} Selected".format(color))
 
     # add labels and clean up the plot
-    ax.set_xlabel("ra")
-    ax.set_ylabel("dec")
+    ax.set_xlabel("Right Ascension")
+    ax.set_ylabel("Declination")
     legend = ax.legend(loc=4, scatterpoints=1)
     legend.get_frame().set_linewidth(0)
     # stop Matplotlib from making the axis have a weird offset, which is hard

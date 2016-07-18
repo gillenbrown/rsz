@@ -330,36 +330,28 @@ class Cluster(object):
                 plotting.add_redshift(ax, self.z[cfg["color"]])
                 self.figures.append(fig)
 
-        #
-        #
-        # if params["interactive"] == "1":
-        #     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
-        #                                    tight_layout=True)
-        #     ax1 = plotting.cmd(self, ax1)
-        #     plotting.add_vega_labels(ax1)
-        #     plotting.add_redshift(ax1, self.z)
-        #     plotting.add_one_model(ax1, self.models[self.z.value], "k")
-        #     plotting.add_flags(ax1, self.flags)
-        #
-        #     ax2 = plotting.location(self, ax2)
-        #     plotting.add_redshift(ax2, self.z)
-        #     plotting.add_flags(ax2, self.flags)
-        #
-        #     plt.show(block=False)
-        #     flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
-        #     plt.close(fig)
-        #
-        #     if flags == "i":
-        #         save_as_one_pdf(figures, params["plot_directory"] +
-        #                 self.name + ".pdf")
-        #     elif flags == "f":
-        #         self.flags += 8
-        #
-        #     for fig in figures:
-        #         plt.close(fig)
-        # else:
-        #     save_as_one_pdf(figures, params["plot_directory"] +
-        #                 self.name + ".pdf")
+        if params["interactive"] == "1":
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
+                                           tight_layout=True)
+            ax1 = plotting.cmd(self, ax1, cfg)
+            plotting.add_vega_labels(ax1, cfg)
+            plotting.add_redshift(ax1, self.z[cfg["color"]])
+            plotting.add_one_model(ax1, self.models[cfg["color"]][self.z[cfg["color"]].value], "k")
+            plotting.add_flags(ax1, self.flags[cfg["color"]])
+
+            ax2 = plotting.location(self, ax2, cfg["color"])
+            plotting.add_redshift(ax2, self.z[cfg["color"]])
+            plotting.add_flags(ax2, self.flags[cfg["color"]])
+
+            for s_fig in self.figures:
+                plt.close(s_fig)
+
+            plt.show(block=False)
+            flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
+            plt.close(fig)
+
+            if flags == "f":
+                self.flags[cfg["color"]] += 8
 
     def _location_cut(self, radius):
         """
