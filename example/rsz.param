@@ -99,9 +99,9 @@ sloan_z_err = -1
 #
 # -----------------------------------------------------------------------------
 
-CMD = 0
+CMD = 1
 fitting_procedure = 0
-final_CMD = 0
-location = 0
+final_CMD = 1
+location = 1
 
 interactive = 0

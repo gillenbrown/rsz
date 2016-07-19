@@ -110,7 +110,7 @@ def get_catalogs(parent_directory, extension):
     return catalogs
 
 
-def start_output(params):
+def start_output(params, colors):
     """Start the output file, and put the header in the file.
 
     :param params: parameter dictionary
@@ -119,8 +119,7 @@ def start_output(params):
     output_file = open(params["results_file"], "w")
     # write the header, which looks really ugly in this format. It looks nice
     # when printed, though, I promise.
-    header = "# " + 22*"-" + 3*" " + "rsz results" + 3*" " + 23*"-" + \
-             "\n" + \
+    header = "# " + 22*"-" + 3*" " + "rsz results" + 3*" " + 23*"-" + "\n" + \
              "#\n" + \
              "# - name: name of the cluster\n" + \
              "#\n" + \
@@ -144,14 +143,29 @@ def start_output(params):
              "#         2: Possible double red sequence. There are two\n" + \
              "#            maxima in the likelihood of redshift.\n" + \
              "#         4: Indistinct red sequence. The red sequence\n" + \
-             "#            isn't clean.\n" + \
+             "#            isn't clean.\n"
+
+    if params["interactive"] == "1":
+        header +=  \
              "#         8: User flag. If the code runs in interactive \n" + \
              "#            mode the user can flag clusters as bad.\n" + \
              "#\n" + \
-             "#" + 63*"-" + "\n" + "#\n"
+             "# - interesting: In interactive mode, the use can flag \n" + \
+             "#                clusters as interesting. This is on a \n" + \
+             "#                per-cluster basis, not per-band.\n"
+
+    header += "#\n" + \
+              "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
-    labels = '# {:25s} {:6s} {:6s} {:6s} {:6s}'.format("name", "z", "ez+",
-                                                       "ez-", "flags")
+    labels = "# {:25s}".format("name")
+    for color in colors:
+        color = color.replace("sloan_", "")
+        labels += " {:12s} {:12s} {:12s} {:12s}".format("z_" + color,
+                                                        "ez+_" + color,
+                                                        "ez-_" + color,
+                                                        "flags_" + color)
+    labels += "\n"
+
     output_file.write(labels)
     return output_file
 
@@ -163,12 +177,13 @@ def add_to_catalog(output_file, the_cluster):
     :param the_cluster: Cluster to add results from.
     :return: none, but the data from the cluster will be written to the file.
     """
-    line = '\n{:27s} {:<6} {:<6}' \
-           '{:<6} {:<6}'.format(the_cluster.name.replace(" ", "_"),
-                                round(the_cluster.z.value, 2),
-                                round(the_cluster.z.upper_error, 2),
-                                round(the_cluster.z.lower_error, 2),
-                                the_cluster.flags)
+    line = '{:27s}'.format(the_cluster.name.replace(" ", "_"))
+    for color in the_cluster.z:
+        line += " {:<12f} {:<12f} {:<12f} {:<12d}".format(the_cluster.z[color].value,
+                                                          the_cluster.z[color].upper_error,
+                                                          the_cluster.z[color].lower_error,
+                                                          the_cluster.flags[color])
+    line += "\n"
     output_file.write(line)
 
 
@@ -195,10 +210,13 @@ def main():
     bands, fit_combos = fitting_combos(params)
     catalogs = get_catalogs(params["catalog_directory"], params["extension"])
 
+    output_file = start_output(params, fit_combos)
+
     print "Starting redshift fitting..."
     # Use sys.stdout.write instead of print so I can get an updating progress.
     sys.stdout.write("0/{} clusters finished.".format(len(catalogs)))
     sys.stdout.flush()
+
 
     # catalogs is a list of paths to catalogs. I start at one so that the
     # count printed to the user isn't off by one.
@@ -215,7 +233,7 @@ def main():
             cl.rs_catalog(params)
 
         # make the output catalog
-        # add_to_catalog(output_file, cl)
+        add_to_catalog(output_file, cl)
 
         # update progress
         sys.stdout.write("\r")  # go back to the beginning of the line

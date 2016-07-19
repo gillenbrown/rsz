@@ -1,0 +1,36 @@
+# ----------------------   rsz results   -----------------------
+#
+# - name: name of the cluster
+#
+#   The next few columns contain the redshift info. This
+#   done on a per band basis.
+# - z: best fit redshift of the cluster
+# - ez+: 1 sigma error on the redshift above the best fit
+# - ez-: 1 sigma error on the redshift below the best fit
+#        Note that these errors assume there is a distinct
+#         red sequence, so if there are flags be wary of
+#         this value.
+# - flag: This column contains info about multiple flags. 
+#         Each flag is assigned to a value of 2^n, and 
+#         then the numbers are summed together, with the 
+#         results being recorded in this column. This 
+#         allows for a unique identifier for each 
+#         combination of flags.
+#         1: Not much clustering. The objects marked as 
+#            red sequence members weren't centrally 
+#            concentrated.
+#         2: Possible double red sequence. There are two
+#            maxima in the likelihood of redshift.
+#         4: Indistinct red sequence. The red sequence
+#            isn't clean.
+#
+#---------------------------------------------------------------
+#
+# name                      z_r-z        ez+_r-z      ez-_r-z      flags_r-z    z_ch1-ch2    ez+_ch1-ch2  ez-_ch1-ch2  flags_ch1-ch2
+cluster_02                  0.981        0.054        0.032        4            0.985        0.080        0.068        1           
+cluster_03                  1.642        0.000        0.173        5            1.317        0.091        0.080        4           
+cluster_04                  0.949        0.054        0.033        4            0.757        0.068        0.080        6           
+cluster_06                  1.057        0.044        0.032        4            0.837        0.068        0.080        1           
+cluster_25                  1.263        0.054        0.076        4            1.145        0.069        0.080        0           
+cluster_27                  1.155        0.032        0.033        4            1.134        0.080        0.069        1           
+cluster_46                  1.09         0.021        0.044        4            1.042        0.069        0.068        1           
