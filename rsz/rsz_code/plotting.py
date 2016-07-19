@@ -49,8 +49,8 @@ def cmd(cluster, ax, cfg):
     # label and clean up the axes
     ax.set_xlim(cfg["plot_lims"][0], cfg["plot_lims"][1])
     ax.set_ylim(cfg["plot_lims"][2], cfg["plot_lims"][3])
-    ax.set_xlabel("{}  [AB]".format(cfg["red_band"]))
-    ax.set_ylabel("{}  [AB]".format(cfg["color"]))
+    ax.set_xlabel("{}  [AB]".format(cfg["red_band"].replace("sloan_", "")))
+    ax.set_ylabel("{}  [AB]".format(cfg["color"].replace("sloan_", "")))
     ax.text(0.03, 0.97, cluster.name.replace("_", " "), transform=ax.transAxes,
             horizontalalignment="left", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
@@ -88,11 +88,13 @@ def add_vega_labels(ax, cfg):
     # set limits and label the new axis, using Vega mags.
     vega_mag_ax.set_xlim(x_min, x_max)
     vega_color_ax.set_ylim(y_min, y_max)
-    vega_mag_ax.set_xlabel("{}  [Vega]".format(cfg["red_band"]))
+    x_label = "{}  [Vega]".format(cfg["red_band"].replace("sloan_", ""))
+    vega_mag_ax.set_xlabel(x_label)
     vega_mag_ax.xaxis.set_label_position("top")
     vega_mag_ax.xaxis.tick_top()
-    vega_color_ax.set_ylabel("{} - {}  [Vega]".format(cfg["blue_band"],
-                                                      cfg["red_band"]))
+    y_label = "{} - {}  [Vega]".format(cfg["blue_band"], cfg["red_band"])
+    y_label = y_label.replace("sloan_", "")
+    vega_color_ax.set_ylabel(y_label)
     vega_color_ax.yaxis.set_label_position("right")
     vega_color_ax.yaxis.tick_right()
 
@@ -237,8 +239,10 @@ def location(cluster, ax, color):
     ax.scatter(rest_ra, rest_dec, c="0.7", linewidth=0)
     ax.scatter(center_ra, center_dec, c="k", linewidth=0,
                label="Location Cut")
+
+    rs_label = "Red Sequence\n{} Selected".format(color.replace("sloan_", ""))
     ax.scatter(rs_member_ra, rs_member_dec, c="r", linewidth=0,
-               label="Red Sequence\n{} Selected".format(color))
+               label=rs_label)
 
     # add labels and clean up the plot
     ax.set_xlabel("Right Ascension")
