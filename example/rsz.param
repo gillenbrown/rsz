@@ -1,5 +1,9 @@
-#  rsz_rz parameter file  
-#
+#  rsz_irac parameter file  
+
+# ------- THE CLUSTERS THIS IS USED ON MUST BE AT z > 0.7!  -------------------
+# IF THE CLUSTER IS AT LOWER REDSHFIT THAN THIS IT WILL RETURN WRONG ANSWERS
+# -----------------------------------------------------------------------------
+
 # -----------  Directories ----------------------------------------------------
 #
 # Note: For all directories below: If relative paths are used, they need to be 
@@ -29,8 +33,15 @@ rs_catalog_dir = rs_catalogs/
 #
 # - type: specify either "flux" or "mag", depending on whether your catalog
 #     contins fluxes or magnitudes.
-# - mags: Specify either "vega" or "ab". Tells the code what magnitude system
-#     the catalog uses.
+# - mag_zeropoint: When using fluxes, this is the zeropoint to convert to 
+#     AB mags, according to mag_AB = -2.5 log(F) + mag_zeropoint. 
+#     If you fluxes are in microJanskys, this will be 23.9. This 
+#     parameter doesn't do anything if the "type" parameter is "mag".
+# - mag_system: When using mags, this tells the code whether they are AB or 
+#     Vega. Specify either "vega" or "ab". This parameter doesn't do anything
+#     if the "type" parameter is "flux".
+# Note: The code uses AB mags under the hood, which is why we need this info.
+# 
 # The rest of the parameters specify the columns where each of the following 
 #     things are located in the catalog. This uses Python idexing, which
 #     starts at zero. Negative indexing also works, so the last column can be 
@@ -39,27 +50,33 @@ rs_catalog_dir = rs_catalogs/
 #     GitHub for more info about how the code uses these.
 # - ra: right ascension
 # - dec: declination
-# - r: flux or magnitude in the SDSS r band
-# - e_r: error in the flux or magnitude in r
-# - z: flux or magnitude in the SDSS z band
-# - e_z: error in the flux or magnitude in z
-# - r-z: r-z color.
-# - e_r-z: error in the r-z color.
 # - dist: distance of the object from the cluster center in arcseconds.
+# 
+# Then we have the photometric information in the catalog. The code takes
+# flux/mag information for each band. It does not take colors at the moment.
+# Each band needs a flux/mag and error. Notate errors by appending "_err" to 
+# the name of the band.
+# The name you give the column determines which filter file EzGal gets to 
+# create the models. Use the name that matches the EzGal filter files.
+# See the `ezgal/data/filters` directory for a list of all filters, or see
+# http://www.baryons.org/ezgal/filters.php
 #
 # -----------------------------------------------------------------------------
 
-type = mag
-mags = vega
-ra = 1
-dec = 2
-r = 11
-e_r = 12
-z = 13
-e_z = 14
-r-z = -99
-e_r-z = -99
-dist = -5
+type = flux
+mag_zeropoint = 23.9
+mag_system = ab
+ra =  0
+dec = 1
+dist = -99
+ch1 = 2
+ch1_err = 3
+ch2 = 4
+ch2_err = 5
+sloan_r = -4
+sloan_r_err = -3
+sloan_z = -2
+sloan_z_err = -1
 
 # -----------    Plots   ------------------------------------------------------
 #
@@ -83,6 +100,8 @@ dist = -5
 # -----------------------------------------------------------------------------
 
 CMD = 1
-fitting_procedure = 1
+fitting_procedure = 0
 final_CMD = 1
 location = 1
+
+interactive = 1

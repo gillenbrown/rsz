@@ -4,6 +4,8 @@ import decimal
 import numpy as np
 import ezgal
 
+import config
+
 
 class _Slope(object):
     """
@@ -17,7 +19,7 @@ class _Slope(object):
     slope given an actual redshift. Everything will work from there.
     """
 
-    def __init__(self):
+    def __init__(self, cfg):
         """
         Find the slope of the red sequence as a function of redshfit.
 
@@ -26,25 +28,20 @@ class _Slope(object):
         :return: a function that returns the slope at a given redshift
         """
 
-        # first we need to see at what redshift does r-z see the various
-        # Eisenhardt colors.
-
         # Then do some interpolating here to find the slope at any redshift
 
         def slope(z):
-            # fit is a polynomial (highest power first) that describes the
+            # fit is a polynomial (lowest power first) that describes the
             # slope of the red sequence as a function of redshift
-            fit = [-0.14489063, -0.00343316]
-            # The work to get that is in the iPython notebook. It needs
-            # work to make it prettier and more satisfying
+            fit = cfg["slope_fit"]
 
             # turn to decimal , so it can play nice with redshifts, which are
             # of type decimal
             fit = [decimal.Decimal(i) for i in fit]
             # plug the redshift into the polynomial. This looks ugly, but
             # that's all it's doing.
-            return float(sum([coeff * (z**i) for i, coeff in
-                              enumerate(reversed(fit))]))
+            return float(sum([coeff * (z ** i) for i, coeff in
+                              enumerate(fit)]))
 
         self.slope_function = slope
 
@@ -59,11 +56,8 @@ class RSModel(object):
     Class storing data from the EzGal models.
     """
 
-    # get an object that can return the slope at any redshift
-    slope = _Slope()
-
     @staticmethod
-    def correction(redshift):
+    def correction(redshift, cfg):
         """
         Does the redshift correction.
 
@@ -78,57 +72,58 @@ class RSModel(object):
         was found that makes the redshifts line up the best.
 
         :param redshift: uncorrected redshift
+        :param cfg: Configuration dictionary.
         :returr: corrected redshift
         """
-        # return redshift
-        # This is the fit, which is described by a linear relationship.
-        #  The first item is the slope, the second is the intercept.
-        #  If there were more items, they would go in descending power order.
-        fit = [1.0834470213733527, 0.01705775352432836]
+        # This is the fit, which comes from numpy.polynomial.polynomial.polyfit
+        # It is the coefficients of the polynomial, starting with the
+        # lowest power of z.
+        fit = cfg["correction"]
         # turn to decimal , so it can play nice with redshifts, which are
         # of type decimal
         fit = [decimal.Decimal(i) for i in fit]
         # Applying the correction is just plugging in the redshift to the
         # correction polynomial. This is a complicated way to do that.
         corrected = sum([coeff * (redshift**i) for i, coeff in
-                         enumerate(reversed(fit))])
+                         enumerate(fit)])
         # round and turn into type decimal, which is what redshifts need to be.
         return decimal.Decimal(str(round(corrected, 3)))
 
-    def __init__(self, redshift, r_mag, z_mag):
+    def __init__(self, redshift, blue_mag, red_mag, cfg):
         """
         Initializes the useful parameters that will be used to calculate
         where the red sequence is.
 
         :param redshift: redshift at which these points are calculated
-        :param r_mag: r_mag at that redshift
-        :param z_mag: z_mag at that redshift
+        :param blue_mag: blue_mag at that redshift
+        :param red_mag: ch2_mag at that redshift
         :return: Model object.
         """
 
-        self.mag_point = z_mag
-        self.color_point = r_mag - z_mag
-        self.z = RSModel.correction(redshift)
-        self._slope = RSModel.slope(redshift)
+        self.mag_point = red_mag
+        self.color_point = blue_mag - red_mag
+        self.z = RSModel.correction(redshift, cfg)
+        self._slope_obj = _Slope(cfg)
+        self._slope = self._slope_obj(redshift)
 
-    def rs_color(self, z_mag):
+    def rs_color(self, red_mag):
         """
-        Calculate the color (r-z) of the red sequence at the given z
+        Calculate the color of the red sequence at the given red_mag
         magnitude.
 
-        :param z_mag: z magnitude at which we want the color of the
-                      red sequence
+        :param red_mag: red magnitude at which we want the color of the
+                        red sequence
         :return: float value with the color of the red sequence
 
         Algorithm: Start with point slope form of a line
         y - y1 = m(x - x1)
         y = y1 + m(x - x1)
-        Where x is z magnitude, y is r-z color, m is the slope of the
-        red sequence, and x1 and y1 are the zeropoint that was returned by
+        Where x is red magnitude, y is color, m is the slope of the
+        red sequence, and x1 and y1 are the zero point that was returned by
         EzGal.
         """
 
-        return self.color_point + self._slope * (z_mag - self.mag_point)
+        return self.color_point + self._slope * (red_mag - self.mag_point)
 
 
 def model_dict(spacing):
@@ -147,17 +142,28 @@ def model_dict(spacing):
 
     # decide the formation redshift and observed redshift
     zf = 3.0
-    zs = np.arange(0.5, 1.500001, spacing)
+    zs = np.arange(0.1, 2.500001, spacing)
 
     # normalize to Coma
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,
                             z=0.023)
 
-    # Calculate the observables we want in AB mags
-    mags = model.get_apparent_mags(zf, filters=["sloan_r", "sloan_z"], zs=zs,
-                                   vega=False)
+    # We need to figure out which filters we need info for.
+    filters = set()
+    for color in config.fitting_combos:
+        band1, band2 = color.split("-")
+        filters.add(band1)
+        filters.add(band2)
+    filters = list(filters)
 
-    # initialize an empty dictionary that will be filled with RSModel objects
+    # then get mags in those filters
+    mags = model.get_apparent_mags(zf, filters=filters, zs=zs,
+                                   ab=True)
+
+    # initialize an empty dictionary that will be filled with RSModel objects.
+    # This will be a nested dictionary. The first set of keys will be the
+    # different colors, the second set will be redshifts, and the values will
+    # be the model objects at that color and redshift
     rs_models = dict()
 
     # turn redshifts into decimal objects, to avoid floating point errors.
@@ -177,12 +183,24 @@ def model_dict(spacing):
         z_2_digits.append(z)
     decimal_zs = [decimal.Decimal(z) for z in z_2_digits]
 
-    for z, m in zip(decimal_zs, mags):
-        r_mag, z_mag = m  # split the magnitudes into r and z
-        # The correction to the redshift is done when the RSModel
-        # object is initialized
-        this_model = RSModel(z, r_mag, z_mag)
-        rs_models[this_model.z] = this_model
+    # we can then put things into the dictionary
+    for color in config.fitting_combos:
+        rs_models[color] = dict()
+        band_1, band_2 = color.split("-")
+        band_1_idx = filters.index(band_1)
+        band_2_idx = filters.index(band_2)
+
+        this_config = config.cfg_matches[color]
+
+        for z, m in zip(decimal_zs, mags):
+            # only do things if the redshift is in the right range
+            if this_config["z_min"] <= z <= this_config["z_max"]:
+                mag_1 = m[band_1_idx]  # split the magnitudes into bands
+                mag_2 = m[band_2_idx]
+                # The correction to the redshift is done when the RSModel
+                # object is initialized
+                this_model = RSModel(z, mag_1, mag_2, this_config)
+                rs_models[color][this_model.z] = this_model
 
     return rs_models
 
@@ -205,7 +223,7 @@ def _make_model():
     except ValueError:  # the default model wasn't found
         try:  # to open the default model
             model = ezgal.model(default_model_name)
-            _evolve_model(model, savename=evolved_model_name)
+            _evolve_model(model, save_name=evolved_model_name)
 
         except ValueError:  # the default model doesn't exist
             raise ValueError("Please download the default model, which is "
@@ -215,13 +233,18 @@ def _make_model():
     return model
 
 
-def _evolve_model(model, savename):
+def _evolve_model(model, save_name):
     """
     Will do model evolution for a model, and save the resulting model.
 
     :param model: model to be evolved.
     :return:None, but model will be saved.
     """
+    print "Calculating model evolution, will take a while..."
+    print "Only needs to be done once, though."
+    # add a bunch of formation redshifts, too
+    model.set_zfs(np.arange(1.0, 4.5, 0.5))
+
     # find the place ezgal stores all the filters
     filters_dir = model.data_dir + "filters" + os.sep
 
@@ -230,10 +253,6 @@ def _evolve_model(model, savename):
     for f in all_filters:
         model.add_filter(f)
 
-    # add a bunch of formation redshifts, too
-    model.set_zfs(np.arange(1.0, 4.5, 0.5))
-    # This will calculate the evolution
-
     # Save the model.
-    location = model.data_dir + "models" + os.sep + savename
+    location = model.data_dir + "models" + os.sep + save_name
     model.save_model(location)

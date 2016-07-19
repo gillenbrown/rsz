@@ -1,13 +1,14 @@
 import os
-import math
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+import numpy as np
 
 import model
 from source import Source
 import data
 import plotting
+import config
 
 
 class Cluster(object):
@@ -26,8 +27,12 @@ class Cluster(object):
 
         # I'll initialize empty source list, that will be filled as we go
         self.sources_list = []
-        self.z = None
-        self.flags = 0
+        self.z = dict()
+        self.flags = dict()
+
+        self.figures = []
+
+        self.interesting = 0
 
         # then read in the objects in the catalog
         self.read_catalog(filepath, params)
@@ -36,8 +41,7 @@ class Cluster(object):
     def _name(filepath, extension):
         filename = os.path.split(filepath)[-1]
         # just remove the extension from the filename
-        return filename
-        # return filename.rstrip(extension)
+        return filename.rstrip(extension)
 
     def read_catalog(self, filepath, params):
         """ Read the catalog, parsing things into sources.
@@ -52,13 +56,14 @@ class Cluster(object):
             for line in cat:
                 # some catalog formats aren't formatted the way I'd like (the
                 # column headers aren't commented out), so ignore that line.
-                if not line.startswith("#"):
+                if not line.startswith("#") and \
+                        not line.strip().startswith("id"):
                     # split the line, to make for easier parsing.
                     split_line = [self.to_float(i) for i in line.split()]
 
                     # get the various things from the parser functions.
                     ra, dec = self.get_ra_dec(params, split_line)
-                    r_mag, z_mag, rmz = self.get_mags(params, split_line)
+                    mags = self.get_mags(params, split_line)
                     dist = self.get_dist(params, split_line)
 
                     # check that the user has specified the appropriate things.
@@ -66,7 +71,7 @@ class Cluster(object):
                         raise TypeError("Specify one of either ra/dec or dist")
 
                     # turn this info into a source object, then add it.
-                    this_source = Source(ra, dec, r_mag, z_mag,  dist, rmz)
+                    this_source = Source(ra, dec, mags, dist)
                     self.sources_list.append(this_source)
 
     @staticmethod
@@ -105,70 +110,65 @@ class Cluster(object):
 
         :param params: Parameter dictionary that is passed all around the code.
         :param split_line: Line of the catalog split into the components.
-        :return: r, z, r-z. Each will be in AB mags, and returned as
+        :return: ch1, ch2, ch1-ch2. Each will be in AB mags, and returned as
                  a data object, to include the errors.
         """
         # check that they did the type and mags right
         if params["type"] not in ["mag", "flux"] or \
-           params["mags"] not in ["vega", "ab"]:
+           params["mag_system"] not in ["vega", "ab"]:
             raise TypeError("Either type or mags wasn't specified correctly"
                             "in the parameter file.")
 
-        # get the data that is in those columns, whether it is mags or flux
-        # z_mag is required, but the other stuff isn't.
-        z_mag = split_line[int(params["z"])]
-        z_err = split_line[int(params["e_z"])]
+        # see which bands were specified in the param file
+        non_band_params = ["catalog_directory", "extension",
+                           "plot_directory", "results_file", "rs_catalog_dir",
+                           "type", "mag_zeropoint", "mag_system", "ra", "dec",
+                           "dist", "CMD", "fitting_procedure", "final_CMD",
+                           "location", "interactive"]
 
-        if params["r"] != "-99":
-            r_mag = split_line[int(params["r"])]
-            r_err = split_line[int(params["e_r"])]
-        else:
-            r_mag = None
-            r_err = None
+        bands = []
+        for key in params:
+            if key in non_band_params:
+                continue
+            # the key we have is either a flux/mag or an error
+            if not key.endswith("_err"):
+                bands.append(key)
 
-        if params["r-z"] != "-99":
-            rmz = split_line[int(params["r-z"])]
-            rmz_error = split_line[int(params["e_r-z"])]
-        else:
-            rmz = None
-            rmz_error = None
+        mags = dict()
+        for band in bands:
+            band_idx = int(params[band])
+            band_err_idx = int(params[band + "_err"])
 
-        # Convert fluxes to magnitudes if need be
-        if params["type"] == "flux":
-            r_err = Cluster.percent_flux_errors_to_mag_errors(r_err/r_mag)
-            r_mag = Cluster.flux_to_mag(r_mag, 23.93)
-            if z_mag is not None:
-                z_err = Cluster.percent_flux_errors_to_mag_errors(z_err/z_mag)
-                z_mag = Cluster.flux_to_mag(z_mag, 23.93)
-            # The color should already be correct.
+            band_data = split_line[band_idx]
+            band_data_err = split_line[band_err_idx]
 
-        # if we are missing either r or the color, use the other info
-        # to find it
-        if r_mag is None and rmz is None:
-            raise IndexError("Either r or the color must be specified "
-                             "in the parameter file.")
-        if r_mag is None:
-            r_mag = rmz + z_mag
-            r_err = math.sqrt(rmz_error**2 - z_err**2)
-            # Yes, that is minus. That is because:
-            # e_r-z**2 = r_err**2 + z_err**2
-        if rmz is None:
-            rmz = r_mag - z_mag
-            rmz_error = math.sqrt(r_err**2 + z_err**2)
+            # convert fluxes to magnitudes if need be
+            if params["type"] == "flux":
 
-        # Convert to AB mags if needed. If we used flux, they are already in AB
-        if params["type"] == "mag" and params["mags"] == "vega":
-            raise NotImplementedError("VEGA conversion!")
-            # the converseions below are ch1 and ch2, not r and z
-            # r_mag += 2.787
-            # z_mag += 3.260
-            # rmz = rmz + 2.787 - 3.260
+                if band_data == 0:
+                    # give it a slightly negative flux, which will be
+                    # interpreted as a bad mag
+                    band_data = -0.1
+                # calculate magerr first, since we need to use the flux
+                band_data_err = Cluster.percent_flux_errors_to_mag_errors(
+                    band_data_err / band_data)
+                # print band_data
+                band_data = Cluster.flux_to_mag(band_data,
+                                                params["mag_zeropoint"])
 
-        # convert to type Data
-        data_r_mag = data.Data(r_mag, r_err)
-        data_z_mag = data.Data(z_mag, z_err)
-        data_rmz = data.Data(rmz, rmz_error)
-        return data_r_mag, data_z_mag, data_rmz
+
+            # Convert to AB mags if needed. If we used flux, they are already in AB
+            if params["type"] == "mag" and params["mag_system"] == "vega":
+                try:
+                    band_data += config.vega_to_ab(band)
+                except KeyError:
+                    raise KeyError("Please specify the AB/Vega conversion "
+                                   "for {} in config.py.".format(band))
+
+            # convert to Data type, and add to dictionary
+            mags[band] = data.Data(band_data, band_data_err)
+
+        return mags
 
     @staticmethod
     def get_dist(params, split_line):
@@ -193,9 +193,21 @@ class Cluster(object):
         :return: magnitude that corresponds to the given flux. If flux is
                  negative, -99 is returned.
         """
+        if flux <= 0:
+            return -99
+        return -2.5 * np.log10(flux) + zeropoint
+
+    @staticmethod
+    def mag_to_flux(mag, zeropoint):
+        if mag < 0:
+            return -99
+        return 10 ** ((zeropoint - mag) / 2.5)
+
+    @staticmethod
+    def mag_errors_to_flux_errors(mag_error, flux):
         if flux < 0:
             return -99
-        return -2.5 * math.log10(flux) + zeropoint
+        return (flux * np.log(10) * mag_error) / 2.5
 
     @staticmethod
     def percent_flux_errors_to_mag_errors(percent_flux_error):
@@ -207,12 +219,14 @@ class Cluster(object):
         :param percent_flux_error: percentage flux error
         :return: magnitude error corresponding to the percentage flux error.
         """
-        return (2.5 / math.log(10, math.e)) * percent_flux_error
+        if percent_flux_error < 0:
+            return 99
+        return (2.5 / np.log(10)) * percent_flux_error
 
     def __repr__(self):
         return self.name
 
-    def fit_z(self, params):
+    def fit_z(self, params, cfg):
         """
         Find the redshift of the cluster by matching its red sequence the
         red sequence models produced by EzGal. This is the main
@@ -220,100 +234,140 @@ class Cluster(object):
 
         :param params: Dictionary full of the user's parameters for the
                        program from the config file.
+        :param color: Color combination use to fit the RS.
         :return: redshift of the cluster. Will be an AsymmetricData
                  instance, to account for the possibility of different upper
                  and lower limits on the redshift.
         """
 
-        # initialize a list of figures, that will be filled as we go along.
-        figures = []
-
         # do a location cut, to only focus on galaxies near the center of
         # the image.
         self._location_cut(1.5)
 
+        # we need to initialize the flags for the cluster
+        self.flags[cfg["color"]] = 0
+
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
-            fig, ax = plotting.cmd(self)
-            # vc_ax, vmax = plotting.add_vega_labels(ax)
-            plotting.add_all_models(fig, ax, steal_axs=[ax]) #, vc_ax, vmax])
-            figures.append(fig)
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax, cfg)
+            vc_ax, vmax = plotting.add_vega_labels(ax, cfg)
+            plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
+                                    cfg=cfg)
+            self.figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
         # point.
-        self.z = self._initial_z()
+        self.z[cfg["color"]] = self._initial_z(cfg)
 
         # If the user wants to see this initial fit, plot it.
         if params["fitting_procedure"] == "1":
-            fig, ax = plotting.cmd(self)
-            # plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
-            plotting.add_redshift(ax, self.z.value)
-            figures.append(fig)
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax, cfg)
+            plotting.add_vega_labels(ax, cfg)
+            plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                  [self.z[cfg["color"]].value],
+                                   "k")
+            plotting.add_redshift(ax, self.z[cfg["color"]].value)
+            self.figures.append(fig)
 
-        # set color cuts that will be used on the increasingly smaller
-        # iterations to refine the fit.
-        bluer_color_cut = [0.25, 0.225]
-        redder_color_cut = [0.4, 0.3]
-        brighter_mag_cut = 1.4
-        dimmer_mag_cut = 0.6
-        # blue is smaller than red to avoid foregrounds, which are
-        # preferentially on the blue side.
 
         # do iterations of fitting, each with a progressively smaller
         # color cut, which is designed to hone in on the red sequence.
-        for bluer_cut, redder_cut in zip(bluer_color_cut, redder_color_cut):
+        for bluer_cut, redder_cut in zip(cfg["bluer_color_cut"],
+                                         cfg["redder_color_cut"]):
             # set red sequence members based on the cuts
-            self._set_rs_membership(self.z.value, bluer_cut,
-                                    redder_cut, brighter_mag_cut,
-                                    dimmer_mag_cut)
+            self._set_rs_membership(self.z[cfg["color"]].value,
+                                    bluer_cut, redder_cut,
+                                    cfg["brighter_mag_cut"],
+                                    cfg["dimmer_mag_cut"],
+                                    cfg)
 
             # do the chi-squared fitting.
-            self.z = self._chi_square_w_error()
+            self.z[cfg["color"]] = self._chi_square_w_error(cfg)
 
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
-                fig, ax = plotting.cmd(self)
-                # plotting.add_vega_labels(ax)
-                plotting.add_one_model(ax, self.models[self.z.value], "k")
-                plotting.add_redshift(ax, self.z.value)
-                figures.append(fig)
+                fig, ax = plt.subplots(figsize=(9, 6))
+                ax = plotting.cmd(self, ax, cfg)
+                plotting.add_vega_labels(ax, cfg)
+                plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                      [self.z[cfg["color"]].value],
+                                       "k")
+                plotting.add_redshift(ax, self.z[cfg["color"]].value)
+                self.figures.append(fig)
 
         # See if there is a cloud, rather than a red sequence.
-        self._clean_rs_check()
+        self._clean_rs_check(cfg)
 
         # Set the final red sequence members
-        self._set_rs_membership(self.z.value, bluer=.35, redder=.35,
-                                brighter=2.0, dimmer=0.6)
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                cfg["final_rs_color"][0],
+                                cfg["final_rs_color"][1],
+                                cfg["final_rs_mag"][0],
+                                cfg["final_rs_mag"][0],
+                                cfg)
 
         # and do the location check based on these RS values
-        self._location_check()
+        self._location_check(cfg["color"])
 
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
         if params["final_CMD"] == "1":
-            fig, ax = plotting.cmd(self)
-            # plotting.add_vega_labels(ax)
-            plotting.add_one_model(ax, self.models[self.z.value], "k")
+            # set up the plot
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax = plotting.cmd(self, ax, cfg)
+            plotting.add_vega_labels(ax, cfg)
+            plotting.add_one_model(ax, self.models[cfg["color"]]
+                                                  [self.z[cfg["color"]].value],
+                                  "k")
             # I want to plot both the low and high models, so get those zs
-            high_z = self.z.value + self.z.upper_error
-            low_z = self.z.value - self.z.lower_error
+            high_z = self.z[cfg["color"]].value + \
+                     self.z[cfg["color"]].upper_error
+            low_z = self.z[cfg["color"]].value - \
+                    self.z[cfg["color"]].lower_error
 
-            plotting.add_one_model(ax, self.models[high_z], "0.6")
-            plotting.add_one_model(ax, self.models[low_z], "0.6")
-            plotting.add_redshift(ax, self.z)
+            plotting.add_one_model(ax, self.models[cfg["color"]][high_z],
+                                   "#AAAAAA")
+            plotting.add_one_model(ax, self.models[cfg["color"]][low_z],
+                                   "#AAAAAA")
+            plotting.add_redshift(ax, self.z[cfg["color"]])
 
-            figures.append(fig)
+            self.figures.append(fig)
 
-        # If the user wants, plot the location of the cluster and RS members.
-        if params["location"] == "1":
-            fig, ax = plotting.location(self)
-            plotting.add_redshift(ax, self.z)
-            figures.append(fig)
 
-        # now that we are all done, save the figures.
-        save_as_one_pdf(figures, params["plot_directory"] +
-                        self.name + ".pdf")
+            # If the user wants, plot the location of the cluster and RS members.
+            if params["location"] == "1":
+                fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
+                ax = plotting.location(self, ax, cfg["color"])
+                plotting.add_redshift(ax, self.z[cfg["color"]])
+                self.figures.append(fig)
+
+        if params["interactive"] == "1":
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
+                                           tight_layout=True)
+            ax1 = plotting.cmd(self, ax1, cfg)
+            plotting.add_vega_labels(ax1, cfg)
+            plotting.add_redshift(ax1, self.z[cfg["color"]])
+            plotting.add_one_model(ax1, self.models[cfg["color"]][self.z[cfg["color"]].value], "k")
+            plotting.add_flags(ax1, self.flags[cfg["color"]])
+
+            ax2 = plotting.location(self, ax2, cfg["color"])
+            plotting.add_redshift(ax2, self.z[cfg["color"]])
+            plotting.add_flags(ax2, self.flags[cfg["color"]])
+
+            for s_fig in self.figures:
+                plt.close(s_fig)
+
+            plt.show(block=False)
+            flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
+            plt.close(fig)
+
+            if flags == "f":
+                self.flags[cfg["color"]] += 8
+            elif flags == "i":
+                self.interesting = 1
 
     def _location_cut(self, radius):
         """
@@ -346,15 +400,17 @@ class Cluster(object):
             if source.dist is None:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
-                source.dist = math.sqrt((source.ra - middle_ra)**2 +
-                                        (source.dec - middle_dec)**2) * 3600
+                source.dist = np.sqrt((source.ra - middle_ra)**2 +
+                                      (source.dec - middle_dec)**2) * 3600
 
             if source.dist < radius*60.0:  # convert radius to arcsec
                 source.near_center = True
             else:
                 source.near_center = False
 
-    def _initial_z(self):
+        # TODO: do clustering algorithm, rather than just mean
+
+    def _initial_z(self, cfg):
         """
         Find a decent initial redshift estimate, based on the number of
         galaxies near each model.
@@ -369,7 +425,7 @@ class Cluster(object):
 
         # Get models with a large spacing, since we don't need a lot of
         # accuracy here.
-        models = model.model_dict(0.05)
+        models = model.model_dict(0.05)[cfg["color"]]
 
         # set placeholder values that will be replaced as we go
         max_nearby = -999
@@ -385,11 +441,19 @@ class Cluster(object):
             mag_point = this_model.mag_point
             for source in self.sources_list:
                 if source.near_center:
+                    source_mag = source.mags[cfg["red_band"]].value
+                    source_color = source.colors[cfg["color"]].value
                     # get the expected RS color for a galaxy of this magnitude
-                    color = this_model.rs_color(source.z_mag.value)
+                    rs_color = this_model.rs_color(source.mags[cfg["red_band"]].value)
+
+                    # then determine the limits for a valid RS galaxy
+                    bright_mag = mag_point - cfg["initial_mag"][0]
+                    faint_mag = mag_point + cfg["initial_mag"][1]
+                    blue_color = rs_color - cfg["initial_color"][0]
+                    red_color = rs_color + cfg["initial_color"][1]
                     # see if it passes a color and magnitude cut
-                    if (mag_point - 2.0 < source.z_mag < mag_point + 0.6) and \
-                       (color - 0.2 < source.rmz < color + 0.2):
+                    if (bright_mag < source_mag < faint_mag) and \
+                       (blue_color < source_color < red_color):
                         # if it did pass, note that it is nearby
                         nearby += 1
 
@@ -402,7 +466,7 @@ class Cluster(object):
         redshifts, nearbies = zip(*z_nearby_pairs)
 
         # check for the double red sequence
-        self._double_red_sequence(nearbies)
+        self._double_red_sequence(nearbies, cfg["color"])
 
         # Turn this into a data object, with errors that span the maximum
         # range, since we don't have a good feeling yet
@@ -411,7 +475,7 @@ class Cluster(object):
         z = data.AsymmetricData(best_z, up_error, low_error)
         return z
 
-    def _double_red_sequence(self, nearby):
+    def _double_red_sequence(self, nearby, color):
         """Checks for the possiblity of a double red sequence.
 
         Is to be used inside the initial_z funciton, since it uses the list of
@@ -447,9 +511,10 @@ class Cluster(object):
                 idx += 1
         # If there are 2 or more maxima, increment the flag.
         if num_local_maxima >= 2:
-            self.flags += 2
+            self.flags[color] += 2
 
-    def _set_rs_membership(self, redshift, bluer, redder, brighter, dimmer):
+    def _set_rs_membership(self, redshift, bluer, redder,
+                           brighter, dimmer, cfg):
         """Set some sources to be RS members, based on color and mag cuts.
 
         :param redshift: redshift of the red sequence that these sources
@@ -471,7 +536,7 @@ class Cluster(object):
         bluer=0.1, redder=0.2, brighter=2.0, dimmer=1.0. Any galaxies that
         have magnitude 18 to 21 pass the magnitude cut. The color cut is
         trickier, since the RS has some slope. We find the characteristic
-        color of the red sequence at the z magnitude of the galaxy (say
+        color of the red sequence at the ch2 magnitude of the galaxy (say
         0.05 for a particular galaxy). Then if the color is within the
         bounds set by bluer and redder (in this case -0.05 to 0.25), then it
         passes the color cut. If a galaxy passes both the magnitude and
@@ -489,22 +554,23 @@ class Cluster(object):
         # get the model, it's characteristic magnitude, and then turn it
         # into magnitude limits bsed on the parameters passed in
 
-        rs_model = self.models[redshift]
+        rs_model = self.models[cfg["color"]][redshift]
         char_mag = rs_model.mag_point
         dim_mag = char_mag + dimmer
         bright_mag = char_mag - brighter
 
         for source in self.sources_list:
-            # get the color correspoinding to the red sequence at the z
+            # get the color correspoinding to the red sequence at the ch2
             # magnitude of this particular source
-            char_color = rs_model.rs_color(source.z_mag.value)
+            char_color = rs_model.rs_color(source.mags[cfg["red_band"]].value)
             # turn it into color limits based on parameters passed in
             red_color = char_color + redder
             blue_color = char_color - bluer
             # a function in the source class does the actual marking
-            source.rs_membership(blue_color, red_color, bright_mag, dim_mag)
+            source.rs_membership(blue_color, red_color, bright_mag, dim_mag,
+                                 cfg["color"], cfg["red_band"])
 
-    def _chi_square_w_error(self):
+    def _chi_square_w_error(self, cfg):
         """Does chi-squared fitting, and returns the best fit value and the
         1 sigma error.
 
@@ -518,8 +584,8 @@ class Cluster(object):
 
         # we only want to do the fitting on those near the center, and those
         #  that are in our tentative RS.
-        to_fit = [source for source in self.sources_list if source.RS_member
-                  and source.near_center]
+        to_fit = [source for source in self.sources_list
+                  if source.RS_member[cfg["color"]] and source.near_center]
 
         # if there isn't anything to fit to, keep the initial z
         if len(to_fit) == 0:
@@ -530,14 +596,14 @@ class Cluster(object):
         redshifts = []
 
         # test each model
-        for z in sorted(self.models):
+        for z in sorted(self.models[cfg["color"]]):
             chi_sq = 0  # reset the chi squared value for this model
-            this_model = self.models[z]
+            this_model = self.models[cfg["color"]][z]
             for source in to_fit:
                 # get the model points, then compare that with the data
-                model_color = this_model.rs_color(source.z_mag.value)
-                color = source.rmz.value
-                error = source.rmz.error
+                model_color = this_model.rs_color(source.mags[cfg["red_band"]].value)
+                color = source.colors[cfg["color"]].value
+                error = source.colors[cfg["color"]].error
                 chi_sq += ((model_color - color)/error)**2
 
             # reduce the chi square values
@@ -581,7 +647,7 @@ class Cluster(object):
         return data.AsymmetricData(best_z, high_error, low_error)
         # TODO: that was a long function. Break it up somehow?
 
-    def _clean_rs_check(self):
+    def _clean_rs_check(self, cfg):
         """ Determine whether or not there is a clean red sequence.
 
         This works by counting the number of red sequence galaxies of the best
@@ -595,40 +661,59 @@ class Cluster(object):
         """
 
         # set cuts to be used each time
-        bluer = 0.25
-        redder = 0.25
-        brighter = 2.5
-        dimmer = 0.6
+        bluer = cfg["bluer_color_cut"][-1]
+        redder = cfg["redder_color_cut"][-1]
+        brighter = cfg["brighter_mag_cut"]
+        dimmer = cfg["dimmer_mag_cut"]
+
         # set the red sequence members for the accepted red sequence.
-        self._set_rs_membership(self.z.value, bluer=bluer, redder=redder,
-                                brighter=brighter, dimmer=dimmer)
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=bluer, redder=redder,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
         # count the RS members in the best fit
-        best_rs = self._count_galaxies()
+        best_rs = self._count_galaxies(cfg["color"])
 
-        # set red sequence members to be in the color range 0.3 redder than
-        # the best fit. It's weird that we subtract from bluer and add to
-        # redder, but if you think of making it less blue and more red you can
-        # convince yourself.
-        self._set_rs_membership(self.z.value, bluer=bluer-0.5,
-                                redder=redder+0.5, brighter=brighter,
-                                dimmer=dimmer)
+        # set red sequence members to be in the color range redder then the
+        # best fit red sequence. The blue limit is where the red limit used
+        # to be, and the red limit is the same distance from the blue limit
+        # that is used to be. This essentially creates an adjacent red
+        # sequence that we can compare to.
+        # Translated into values, the blue limit goes at the negative value of
+        # the old red limit (since it's in the opposite direction blue
+        # normally is). Red turns into the old red limit plus the distance,
+        # which is simply the sum of red and blue limits. Then this reverses
+        # for the bluer RS
+
+        red_bluer = -1 * redder
+        red_redder = 2 * redder + bluer
+
+        blue_redder = -1 * bluer
+        blue_bluer = 2 * bluer + redder
+
+        # red RS cut
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=red_bluer, redder=red_redder,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
         # again count the galaxies in this red sequence
-        red_rs = self._count_galaxies()
+        red_rs = self._count_galaxies(cfg["color"])
 
-        # set red sequenc members to be a bluer red sequence
-        self._set_rs_membership(self.z.value, bluer=bluer+0.5,
-                                redder=redder-0.5, brighter=brighter,
-                                dimmer=dimmer)
-        blue_rs = self._count_galaxies()
+        # blue RS cut
+        self._set_rs_membership(self.z[cfg["color"]].value,
+                                bluer=blue_bluer, redder=blue_redder,
+                                brighter=brighter, dimmer=dimmer,
+                                cfg=cfg)
+        blue_rs = self._count_galaxies(cfg["color"])
 
         # Compare the numbers in the 3 red sequences. Set the flag if the
         # number of galaxies in the best red sequence is less than twice
-        # the sum of the two offset red sequences. The 2 times is arbitrary.
+        # the sum of the two offset red sequences. The 1.5 times is arbitrary.
         # It was chosen to make things I thought looked bad have this flag.
-        if ((red_rs + blue_rs) * 2.0) >= best_rs:
-            self.flags += 4
+        if ((red_rs + blue_rs) * 1.25) >= best_rs:
+            self.flags[cfg["color"]] += 4
 
-    def _count_galaxies(self):
+    def _count_galaxies(self, color):
         """ Counts the number of red sequence galaxies near the center.
 
         :return: number of red sequence galaxies that are near the center.
@@ -637,11 +722,11 @@ class Cluster(object):
         """
         count = 0
         for source in self.sources_list:
-            if source.near_center and source.RS_member:
+            if source.near_center and source.RS_member[color]:
                 count += 1
         return float(count)
 
-    def _location_check(self):
+    def _location_check(self, color):
         """Looks to see if the red sequence galaxies are concentrated in the
         middle. If they are not, this will raise a flag.
 
@@ -659,53 +744,90 @@ class Cluster(object):
                                        if source.near_center]))
         rs_near_center = float(len([source for source in self.sources_list
                                     if source.near_center and
-                                    source.RS_member]))
+                                    source.RS_member[color]]))
 
         total_not_near_center = float(len([source for source in
                                            self.sources_list if
                                            not source.near_center]))
         rs_not_near_center = float(len([source for source in self.sources_list
                                         if not source.near_center and
-                                        source.RS_member]))
+                                        source.RS_member[color]]))
 
         # Calculate the percent of sources that are red sequence members both
         # near and far from the center.
-        near_rs_percent = rs_near_center / total_near_center
-        not_near_rs_percent = rs_not_near_center / total_not_near_center
+        try:
+            near_rs_percent = rs_near_center / total_near_center
+            not_near_rs_percent = rs_not_near_center / total_not_near_center
 
-        # raise the flag if the percent near the center isn't high enough.
-        if near_rs_percent <= not_near_rs_percent * 1.75:
-            self.flags += 1
+            # raise the flag if the percent near the center isn't high enough.
+            if near_rs_percent <= not_near_rs_percent * 1.75:
+                self.flags[color] += 1
+        except ZeroDivisionError:
+            self.flags[color] += 1
 
-    def rs_catalog(self, filepath):
+    def rs_catalog(self, params):
         """ Writes a catalog of all the objects, indicating the RS members.
 
-        :param filepath: place the catalog should be saved.
-        :returns: none, but the catalog is saved to disk.
+        :returns: none, but the catalog is saved.
         """
+
+        filepath = params["rs_catalog_dir"] + os.sep + self.name + ".rs.cat"
+
+        # get the type of info, and make a header using that
+        d_type = params["type"]
+
+        header = "# {:<12s} {:<12s}".format("ra", "dec")
+
+        # also make a general formatters that will be used later
+        coords_formatter = "  {:<12.7f} {:<12.7f}"
+
+        phot_formatter = " {:<15.3f} {:<15.3f}"
+        for band in self.sources_list[0].mags:
+            band = band.replace("sloan_", "")
+
+            header += " {:<15s} {:<15s}".format(band + "_" + d_type,
+                                            band + "_" + d_type + "_err")
+
+        center_formatter = " {:<7}"
+        header += center_formatter.format("center")
+
+        rs_formatter = " {:<10}"
+        for color in self.z:
+            header += rs_formatter.format(color.replace("sloan_", "") + "_RS")
+
         with open(filepath, "w") as cat:
             # I want the headers to line up over the data
-            header = "# {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} " \
-                     "{:10s} {:2s}\n".format("ra", "dec", "r", "e_r",
-                                             "z", "e_z", "r-z",
-                                             "e_r-z", "RS")
-            cat.write(header)
+            cat.write(header + "\n")
+
 
             for source in self.sources_list:
-                if source.RS_member:
-                    rs = 1
-                else:
-                    rs = 0
-                cat.write("{:10f} {:10f} {:10f} {:10f} {:10f} {:10f} {:10f} "
-                          "{:10f} {:2d}\n".format(source.ra,
-                                                  source.dec,
-                                                  source.r_mag.value,
-                                                  source.r_mag.error,
-                                                  source.z_mag.value,
-                                                  source.z_mag.error,
-                                                  source.rmz.value,
-                                                  source.rmz.error,
-                                                  rs))
+                line = coords_formatter.format(source.ra, source.dec)
+                # TODO: test this with mags and flux
+
+                for band in source.mags:
+                    mag = source.mags[band].value
+                    magerr = source.mags[band].error
+                    if d_type == "mags":
+                        if params["mag_system"] == "ab":
+                            line += phot_formatter.format(mag, magerr)
+                        else:
+                            mag -= config.vega_to_ab[band]  # convert to Vega
+                            line += phot_formatter.format(mag, magerr)
+                    else:
+                        flux = self.mag_to_flux(mag, params["mag_zeropoint"])
+                        fluxerr = self.mag_errors_to_flux_errors(magerr, flux)
+
+                        line += phot_formatter.format(flux, fluxerr)
+
+                # add whether or not it's centered
+                line += center_formatter.format(source.near_center)
+
+                # then add RS information
+                for color in self.z:
+                    line += rs_formatter.format(source.RS_member[color])
+
+                line += "\n"
+                cat.write(line)
 
 
 def save_as_one_pdf(figs, filename):
@@ -717,7 +839,11 @@ def save_as_one_pdf(figs, filename):
     :return: none
     """
 
-    # Save the pdfs as one file
+    # check if there are actually figures to save.
+    if len(figs) == 0:
+        return
+
+    # if so, save them.
     pp = PdfPages(filename)
     for fig in figs:
         pp.savefig(fig)
