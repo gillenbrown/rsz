@@ -160,17 +160,20 @@ def start_output(params, colors):
     labels = "# {:25s}".format("name")
     for color in colors:
         color = color.replace("sloan_", "")
-        labels += " {:12s} {:12s} {:12s} {:12s}".format("z_" + color,
+        labels += " {:12s} {:12s} {:12s} {:14s}".format("z_" + color,
                                                         "ez+_" + color,
                                                         "ez-_" + color,
                                                         "flags_" + color)
+
+    if params["interactive"] == "1":
+        labels += " interesting"
     labels += "\n"
 
     output_file.write(labels)
     return output_file
 
 
-def add_to_catalog(output_file, the_cluster):
+def add_to_catalog(output_file, the_cluster, params):
     """Add the data from a given cluster to the results file.
 
     :param output_file: open file object where the results will be appended to.
@@ -179,10 +182,13 @@ def add_to_catalog(output_file, the_cluster):
     """
     line = '{:27s}'.format(the_cluster.name.replace(" ", "_"))
     for color in the_cluster.z:
-        line += " {:<12f} {:<12f} {:<12f} {:<12d}".format(the_cluster.z[color].value,
+        line += " {:<12f} {:<12f} {:<12f} {:<14d}".format(the_cluster.z[color].value,
                                                           the_cluster.z[color].upper_error,
                                                           the_cluster.z[color].lower_error,
                                                           the_cluster.flags[color])
+    if params["interactive"] == "1":
+        line += " {}".format(the_cluster.interesting)
+
     line += "\n"
     output_file.write(line)
 
@@ -233,7 +239,7 @@ def main():
             cl.rs_catalog(params)
 
         # make the output catalog
-        add_to_catalog(output_file, cl)
+        add_to_catalog(output_file, cl, params)
 
         # update progress
         sys.stdout.write("\r")  # go back to the beginning of the line

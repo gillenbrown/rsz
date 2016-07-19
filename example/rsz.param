@@ -104,4 +104,4 @@ fitting_procedure = 0
 final_CMD = 1
 location = 1
 
-interactive = 0
+interactive = 1
