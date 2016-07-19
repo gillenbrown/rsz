@@ -408,6 +408,8 @@ class Cluster(object):
             else:
                 source.near_center = False
 
+        # TODO: do clustering algorithm, rather than just mean
+
     def _initial_z(self, cfg):
         """
         Find a decent initial redshift estimate, based on the number of
@@ -663,6 +665,7 @@ class Cluster(object):
         redder = cfg["redder_color_cut"][-1]
         brighter = cfg["brighter_mag_cut"]
         dimmer = cfg["dimmer_mag_cut"]
+
         # set the red sequence members for the accepted red sequence.
         self._set_rs_membership(self.z[cfg["color"]].value,
                                 bluer=bluer, redder=redder,
@@ -671,29 +674,43 @@ class Cluster(object):
         # count the RS members in the best fit
         best_rs = self._count_galaxies(cfg["color"])
 
-        # set red sequence members to be in the color range 0.3 redder than
-        # the best fit. It's weird that we subtract from bluer and add to
-        # redder, but if you think of making it less blue and more red you can
-        # convince yourself.
+        # set red sequence members to be in the color range redder then the
+        # best fit red sequence. The blue limit is where the red limit used
+        # to be, and the red limit is the same distance from the blue limit
+        # that is used to be. This essentially creates an adjacent red
+        # sequence that we can compare to.
+        # Translated into values, the blue limit goes at the negative value of
+        # the old red limit (since it's in the opposite direction blue
+        # normally is). Red turns into the old red limit plus the distance,
+        # which is simply the sum of red and blue limits. Then this reverses
+        # for the bluer RS
+
+        red_bluer = -1 * redder
+        red_redder = 2 * redder + bluer
+
+        blue_redder = -1 * bluer
+        blue_bluer = 2 * bluer + redder
+
+        # red RS cut
         self._set_rs_membership(self.z[cfg["color"]].value,
-                                bluer=bluer - 0.3, redder=redder + 0.3,
+                                bluer=red_bluer, redder=red_redder,
                                 brighter=brighter, dimmer=dimmer,
                                 cfg=cfg)
         # again count the galaxies in this red sequence
         red_rs = self._count_galaxies(cfg["color"])
 
-        # set red sequenc members to be a bluer red sequence
+        # blue RS cut
         self._set_rs_membership(self.z[cfg["color"]].value,
-                                bluer=bluer + 0.3, redder=redder - 0.3,
+                                bluer=blue_bluer, redder=blue_redder,
                                 brighter=brighter, dimmer=dimmer,
                                 cfg=cfg)
         blue_rs = self._count_galaxies(cfg["color"])
 
         # Compare the numbers in the 3 red sequences. Set the flag if the
         # number of galaxies in the best red sequence is less than twice
-        # the sum of the two offset red sequences. The 2 times is arbitrary.
+        # the sum of the two offset red sequences. The 1.5 times is arbitrary.
         # It was chosen to make things I thought looked bad have this flag.
-        if ((red_rs + blue_rs) * 2.0) >= best_rs:
+        if ((red_rs + blue_rs) * 1.25) >= best_rs:
             self.flags[cfg["color"]] += 4
 
     def _count_galaxies(self, color):
@@ -811,7 +828,6 @@ class Cluster(object):
 
                 line += "\n"
                 cat.write(line)
-
 
 
 def save_as_one_pdf(figs, filename):

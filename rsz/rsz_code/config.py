@@ -40,7 +40,7 @@ ch1_m_ch2["redder_color_cut"] = [0.2, 0.1]
 ch1_m_ch2["brighter_mag_cut"] = 2.5
 ch1_m_ch2["dimmer_mag_cut"] = 0
 ch1_m_ch2["final_rs_mag"] = [2.0, 0.6]  # brighter, fainter
-ch1_m_ch2["final_rs_color"] = [0.2, 0.2]  # bluer, redder
+ch1_m_ch2["final_rs_color"] = [0.15, 0.15]  # bluer, redder
 
 
 
