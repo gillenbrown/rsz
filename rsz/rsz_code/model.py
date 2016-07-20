@@ -150,7 +150,7 @@ def model_dict(spacing):
 
     # We need to figure out which filters we need info for.
     filters = set()
-    for color in config.fitting_combos:
+    for color in config.cfg_matches:
         band1, band2 = color.split("-")
         filters.add(band1)
         filters.add(band2)
@@ -184,7 +184,7 @@ def model_dict(spacing):
     decimal_zs = [decimal.Decimal(z) for z in z_2_digits]
 
     # we can then put things into the dictionary
-    for color in config.fitting_combos:
+    for color in config.cfg_matches:
         rs_models[color] = dict()
         band_1, band_2 = color.split("-")
         band_1_idx = filters.index(band_1)

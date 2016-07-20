@@ -160,7 +160,7 @@ class Cluster(object):
             # Convert to AB mags if needed. If we used flux, they are already in AB
             if params["type"] == "mag" and params["mag_system"] == "vega":
                 try:
-                    band_data += config.vega_to_ab(band)
+                    band_data -= config.ab_to_vega(band)
                 except KeyError:
                     raise KeyError("Please specify the AB/Vega conversion "
                                    "for {} in config.py.".format(band))

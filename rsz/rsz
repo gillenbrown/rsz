@@ -87,7 +87,7 @@ def fitting_combos(params):
     for band1 in bands:
         for band2 in bands:
             combo = "{}-{}".format(band1, band2)
-            if combo in config.fitting_combos:
+            if combo in config.cfg_matches:
                 band_combos.append(combo)
     return bands, band_combos
 

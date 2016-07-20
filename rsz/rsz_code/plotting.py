@@ -12,6 +12,8 @@ import model
 import data
 import config
 
+nice_red = "#D62728"
+
 
 def cmd(cluster, ax, cfg):
     """
@@ -36,7 +38,7 @@ def cmd(cluster, ax, cfg):
         # will be colored black.
         try:  # if RS membership hasn't been created yet, the key wont exist
             if source.RS_member[cfg["color"]]:
-                point_color = "r"
+                point_color = nice_red
             else:
                 point_color = "k"
         except KeyError:
@@ -73,14 +75,14 @@ def add_vega_labels(ax, cfg):
 
     # we store our conversion factors in the form AB_mag = Vega_mag + factor,
     # so to get Vega mags we subtract our factor
-    x_min = cfg["plot_lims"][0] - config.vega_to_ab[cfg["blue_band"]]
-    x_max = cfg["plot_lims"][1] - config.vega_to_ab[cfg["red_band"]]
+    x_min = cfg["plot_lims"][0] + config.ab_to_vega[cfg["blue_band"]]
+    x_max = cfg["plot_lims"][1] + config.ab_to_vega[cfg["red_band"]]
 
     # y is a little trickier, we need to convert both to Vega
-    y_min = cfg["plot_lims"][2] - (config.vega_to_ab[cfg["blue_band"]] -
-                                   config.vega_to_ab[cfg["red_band"]])
-    y_max = cfg["plot_lims"][3] - (config.vega_to_ab[cfg["blue_band"]] -
-                                   config.vega_to_ab[cfg["red_band"]])
+    y_min = cfg["plot_lims"][2] + (config.ab_to_vega[cfg["blue_band"]] -
+                                   config.ab_to_vega[cfg["red_band"]])
+    y_max = cfg["plot_lims"][3] + (config.ab_to_vega[cfg["blue_band"]] -
+                                   config.ab_to_vega[cfg["red_band"]])
 
     # we need to make a second axis
     vega_color_ax = ax.twinx()
@@ -236,12 +238,12 @@ def location(cluster, ax, color):
         else:
             rest_ra.append(source.ra)
             rest_dec.append(source.dec)
-    ax.scatter(rest_ra, rest_dec, c="0.7", linewidth=0)
-    ax.scatter(center_ra, center_dec, c="k", linewidth=0,
+    ax.scatter(rest_ra, rest_dec, c="0.8", linewidth=0.15)
+    ax.scatter(center_ra, center_dec, c="0.2", linewidth=0.15,
                label="Location Cut")
 
     rs_label = "Red Sequence\n{} Selected".format(color.replace("sloan_", ""))
-    ax.scatter(rs_member_ra, rs_member_dec, c="r", linewidth=0,
+    ax.scatter(rs_member_ra, rs_member_dec, c="#D62728", linewidth=0.15,
                label=rs_label)
 
     # add labels and clean up the plot
