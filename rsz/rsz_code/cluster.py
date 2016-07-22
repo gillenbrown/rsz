@@ -3,6 +3,7 @@ import os
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy import convolution
 
 import model
 from source import Source
@@ -242,7 +243,7 @@ class Cluster(object):
 
         # do a location cut, to only focus on galaxies near the center of
         # the image.
-        self._location_cut(1.5)
+        self._location_cut(1.0, params)
 
         # we need to initialize the flags for the cluster
         self.flags[cfg["color"]] = 0
@@ -369,7 +370,78 @@ class Cluster(object):
             elif flags == "i":
                 self.interesting = 1
 
-    def _location_cut(self, radius):
+    @staticmethod
+    def _bin_edges(data, bin_size):
+        """ Determines the bin edges given data and a bin size.
+
+        The bin edges will span all the data. The lowest edge will be at the
+        minimum of the data, and the highest one will be just above the max
+        value of the dataset.
+
+        :param data: List of data elements to be binned. Note that this
+                     method doesn't actually do the binning, it just determines
+                     what the appropriate bin edges are.
+        :param bin_size: Size of the bins.
+        :return: List of bin edges
+        """
+
+        # start with the lowest value in the dataset as our lowest edge.
+        edges = [min(data)]
+        # we will add an edge at a time until we have spanned the whole dataset
+        while edges[-1] < max(data):
+            edges.append(edges[-1] + bin_size)
+
+        return edges
+
+    @staticmethod
+    def _centering(ras, decs):
+
+        # we want bin sizes of 5 arcseconds. This is small enough that we
+        # can still get good resolution, but large enough that future
+        # calculations won't take forever
+        dec_bin_size = 5.0 / 3600.0  # convert to degrees
+        # the ra bin size has to take into account the cos(dec) affect.
+        # we can derive a size, assuming we want equally sized bins
+        #                delta x = delta y
+        #    delta ra * cos(dec) = delta dec
+        #               delta ra = delta dec / cos(dec)
+        # so since we have our dec bin size, we can get the ra bin size. We
+        # will use the declination of the center of the image.
+        middle_dec = (max(decs) + min(decs)) / 2.0
+        ra_bin_size = dec_bin_size / np.cos(middle_dec * np.pi / 180.0) # rads
+
+        # we then make the bins themselves
+        dec_bin_edges = Cluster._bin_edges(decs, dec_bin_size)
+        ra_bin_edges = Cluster._bin_edges(ras, ra_bin_size)
+
+        # we can now make the original density 2D histogram
+        hist, _, _ = np.histogram2d(ras, decs,
+                                    bins=[ra_bin_edges, dec_bin_edges])
+
+        # we now want to smooth this histogram. I will smooth on 0.5 arcminute
+        # scales. This will highlight the center of the cluster, where it is
+        # densest. We need to figure out how big this is, but we already know
+        # how big our bins are, so this is easy.
+        smoothing_scale = 0.5 / (dec_bin_size * 60)  # in arcmin
+        kernel = convolution.Gaussian2DKernel(stddev=smoothing_scale)
+
+        # then we can smooth our 2D histogram
+        smoothed_hist = convolution.convolve(hist, kernel)
+
+        # then we need to get the max value of that, and turn it into coords
+        max_idx = np.argmax(smoothed_hist)  # returns idx of flattened array
+        # we turn this idx of flattened array into the appropriate 2D indices
+        ra_idx = max_idx // smoothed_hist.shape[1]
+        dec_idx = max_idx % smoothed_hist.shape[1]
+
+        # since we know the bin size, we can turn this into a coordinate
+        # we add half a bin size to get to the center of each bin
+        ra_cen = min(ras) + ra_idx * ra_bin_size + ra_bin_size / 2.0
+        dec_cen = min(decs) + dec_idx * dec_bin_size + dec_bin_size / 2.0
+
+        return ra_cen, dec_cen
+
+    def _location_cut(self, radius, params):
         """
         Does a location cut on the galaxies in the image.
 
@@ -393,22 +465,23 @@ class Cluster(object):
         ras = [source.ra for source in self.sources_list]
         decs = [source.dec for source in self.sources_list]
 
-        middle_ra = (max(ras) + min(ras)) / 2.0
-        middle_dec = (max(decs) + min(decs)) / 2.0
+        # we may need to find our own centers
+        if params["dist"] == "-99":
+            center_ra, center_dec = Cluster._centering(ras, decs)
 
-        for source in self.sources_list:
-            if source.dist is None:
+            for source in self.sources_list:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
-                source.dist = np.sqrt((source.ra - middle_ra)**2 +
-                                      (source.dec - middle_dec)**2) * 3600
+                dec_radians = center_dec * np.pi / 180.0
+                ra_sep = (source.ra - center_ra) * np.cos(dec_radians)
+                dec_sep = source.dec - center_dec
+                source.dist = np.sqrt(ra_sep**2 + dec_sep**2) * 3600
 
+        for source in self.sources_list:
             if source.dist < radius*60.0:  # convert radius to arcsec
                 source.near_center = True
             else:
                 source.near_center = False
-
-        # TODO: do clustering algorithm, rather than just mean
 
     def _initial_z(self, cfg):
         """
