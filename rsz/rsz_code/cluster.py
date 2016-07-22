@@ -1,5 +1,4 @@
 import os
-
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import numpy as np
@@ -157,8 +156,7 @@ class Cluster(object):
                 band_data = Cluster.flux_to_mag(band_data,
                                                 params["mag_zeropoint"])
 
-
-            # Convert to AB mags if needed. If we used flux, they are already in AB
+            # Convert to AB mags if needed. If we had flux, they are AB already
             if params["type"] == "mag" and params["mag_system"] == "vega":
                 try:
                     band_data -= config.ab_to_vega(band)
@@ -235,7 +233,7 @@ class Cluster(object):
 
         :param params: Dictionary full of the user's parameters for the
                        program from the config file.
-        :param color: Color combination use to fit the RS.
+        :param cfg: Configuration dictionary.
         :return: redshift of the cluster. Will be an AsymmetricData
                  instance, to account for the possibility of different upper
                  and lower limits on the redshift.
@@ -272,7 +270,6 @@ class Cluster(object):
                                    "k")
             plotting.add_redshift(ax, self.z[cfg["color"]].value)
             self.figures.append(fig)
-
 
         # do iterations of fitting, each with a progressively smaller
         # color cut, which is designed to hone in on the red sequence.
@@ -320,9 +317,8 @@ class Cluster(object):
             fig, ax = plt.subplots(figsize=(9, 6))
             ax = plotting.cmd(self, ax, cfg)
             plotting.add_vega_labels(ax, cfg)
-            plotting.add_one_model(ax, self.models[cfg["color"]]
-                                                  [self.z[cfg["color"]].value],
-                                  "k")
+            plotting.add_one_model(ax, self.models[cfg["color"]][self.z[cfg["color"]].value], "k")
+
             # I want to plot both the low and high models, so get those zs
             high_z = self.z[cfg["color"]].value + \
                      self.z[cfg["color"]].upper_error
@@ -338,7 +334,7 @@ class Cluster(object):
             self.figures.append(fig)
 
 
-            # If the user wants, plot the location of the cluster and RS members.
+            # If the user wants, plot the location of the RS members.
             if params["location"] == "1":
                 fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
                 ax = plotting.location(self, ax, cfg["color"])
@@ -362,7 +358,7 @@ class Cluster(object):
                 plt.close(s_fig)
 
             plt.show(block=False)
-            flags = raw_input("Enter the flags for this cluster: [i/f/enter]: ")
+            flags = raw_input("Enter the flags for this cluster [i/f/enter]: ")
             plt.close(fig)
 
             if flags == "f":
@@ -371,30 +367,46 @@ class Cluster(object):
                 self.interesting = 1
 
     @staticmethod
-    def _bin_edges(data, bin_size):
+    def _bin_edges(values, bin_size):
         """ Determines the bin edges given data and a bin size.
 
         The bin edges will span all the data. The lowest edge will be at the
         minimum of the data, and the highest one will be just above the max
-        value of the dataset.
+        value of the values.
 
-        :param data: List of data elements to be binned. Note that this
+        :param values: List of data elements to be binned. Note that this
                      method doesn't actually do the binning, it just determines
                      what the appropriate bin edges are.
         :param bin_size: Size of the bins.
         :return: List of bin edges
         """
 
-        # start with the lowest value in the dataset as our lowest edge.
-        edges = [min(data)]
-        # we will add an edge at a time until we have spanned the whole dataset
-        while edges[-1] < max(data):
+        # start with the lowest value in the data set as our lowest edge.
+        edges = [min(values)]
+        # we will add an edge at a time until we have spanned all the values
+        while edges[-1] < max(values):
             edges.append(edges[-1] + bin_size)
 
         return edges
 
     @staticmethod
     def _centering(ras, decs):
+        """
+        Finds a guess for the center of the cluster if the user doesn't know.
+
+        This is done in catalog space with a density based-approach. This
+        assumes the cluster is the densest thing in the image, which is
+        probably will be. Contamination won't affect this too much, hopefully.
+
+        The algorithm starts by making the 2D histogram of the number of
+        galaxies in each bin. This is then smoothed on a scale roughly
+        equivalent to the size of the core of the cluster. Then the highest
+        value is picked as the center of the cluster.
+
+        :param ras: List of RA values we want to find a center for.
+        :param decs: List of dec values we want to find a center for.
+        :return: Guesses for the RA and dec of the center of the cluster.
+        """
 
         # we want bin sizes of 5 arcseconds. This is small enough that we
         # can still get good resolution, but large enough that future
@@ -408,7 +420,7 @@ class Cluster(object):
         # so since we have our dec bin size, we can get the ra bin size. We
         # will use the declination of the center of the image.
         middle_dec = (max(decs) + min(decs)) / 2.0
-        ra_bin_size = dec_bin_size / np.cos(middle_dec * np.pi / 180.0) # rads
+        ra_bin_size = dec_bin_size / np.cos(middle_dec * np.pi / 180.0)  # rads
 
         # we then make the bins themselves
         dec_bin_edges = Cluster._bin_edges(decs, dec_bin_size)
@@ -872,7 +884,6 @@ class Cluster(object):
             # I want the headers to line up over the data
             cat.write(header + "\n")
 
-
             for source in self.sources_list:
                 line = coords_formatter.format(source.ra, source.dec)
                 # TODO: test this with mags and flux
@@ -884,7 +895,7 @@ class Cluster(object):
                         if params["mag_system"] == "ab":
                             line += phot_formatter.format(mag, magerr)
                         else:
-                            mag -= config.vega_to_ab[band]  # convert to Vega
+                            mag += config.ab_to_vega[band]  # convert to Vega
                             line += phot_formatter.format(mag, magerr)
                     else:
                         flux = self.mag_to_flux(mag, params["mag_zeropoint"])
