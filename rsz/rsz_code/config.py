@@ -183,3 +183,92 @@ ab_to_vega = {"ch1": -2.787,
               "sloan_r": -0.146,
               "sloan_i": -0.357,
               "sloan_z": -0.521}
+
+# ------------------ Validating this file  ------------------------------------
+#
+# Don't add anything down here, the code here just checks that you filled
+# things up properly.
+
+all_keys = ["color", "blue_band", "red_band", "z_min", "z_max", "correction",
+            "slope_fit", "plot_lims", "initial_mag", "initial_color",
+            "bluer_color_cut", "redder_color_cut", "brighter_mag_cut",
+            "dimmer_mag_cut", "final_rs_mag", "final_rs_color"]
+
+for color, cfg in cfg_matches.items():
+    # check that all the keys are there
+    for key in all_keys:
+        if key not in cfg:
+            raise ValueError("Please add the {} parameter to the {} \n"
+                             "\tconfiguration dictionary in config.py.\n"
+                             "\n".format(key, color))
+
+    # then check that there aren't any keys that shouldn't be there
+    for key in cfg:
+        if key not in all_keys:
+            raise ValueError("The parameter {} that you added to the {}\n"
+                             "\tconfiguration dictionary is not needed.\n"
+                             "Please remove it.\n".format(key, color))
+
+    # then validate the other paramters.
+
+    # the color should match
+    if color != cfg["color"]:
+        raise ValueError("The color you specified in the {} dictionary\n"
+                         "\tdoes not match the name you gave it in the \n"
+                         "\t`cfg_matches` dictionary, which is {}. \n"
+                         "\tPlease fix this.\n".format(cfg["color"], color))
+
+    # the bands should match the name of the color
+    if color != "-".join([cfg["blue_band"], cfg["red_band"]]):
+        raise ValueError("The name of the bands you specified in the\n"
+                         "\t`red_band` and `blue_band` parameters of the {}\n"
+                         "\tdictionary doesn't match the color you gave: {}.\n"
+                         "\tPlease fix this. The color should have the form:\n"
+                         "\tblue_band-red_band.".format(color, color))
+
+    # these bands should have AB-Vega conversions
+    for band in [cfg["red_band"], cfg["blue_band"]]:
+        if band not in ab_to_vega:
+            raise ValueError("Please add {} to the `ab_to_vega` dictionary\n"
+                             "\tin config.py.".format(band))
+
+    # the z_max and min need to be in decimal format
+    for z in ["z_max", "z_min"]:
+        if type(cfg[z]) != decimal.Decimal:
+            raise ValueError("The {} paramter in the {} config dictionary\n"
+                             "\tneeds to be of type decimal. See the other\n"
+                             "\timplemented ones for an example."
+                             "\n".format(z, color))
+
+    # the correction and slope need to be a list with nonzero entries
+    for key in ["correction", "slope_fit",
+                "bluer_color_cut", "redder_color_cut"]:
+        if type(cfg[key]) != list or len(cfg[key]) < 1:
+            raise ValueError("The {} parameter in the {} configuration\n"
+                             "\tdictionary needs to be a list with at\n"
+                             "\tleast one entry.".format(key, color))
+
+    # TODO: verify all of these
+
+    # the plot_lims needs to be a list of 4 values.
+    if type(cfg["plot_lims"]) != list or len(cfg["plot_lims"]) != 4:
+        raise ValueError("The parameter plot_lims in the {} configuration\n"
+                         "\tdictionary needs to be a list with 4 items."
+                         "".format(color))
+
+    # the initial mag, initial color, final mag, and final color are all
+    # lists with two values.
+    for key in ["initial_mag", "initial_color",
+                "final_rs_mag", "final_rs_color"]:
+        if type(cfg[key]) != list or len(cfg[key]) != 2:
+            raise ValueError("The parameter {} in the {} configuration\n"
+                             "\tdictionary needs to be a list with 2 items,\n"
+                             "\tas described in config.py.".format(key, color))
+
+    # TODO: verify all of these
+
+    # TODO: check brighter and dimmer mag cut
+
+
+
+
