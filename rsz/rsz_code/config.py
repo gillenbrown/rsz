@@ -209,7 +209,7 @@ for color, cfg in cfg_matches.items():
                              "\tconfiguration dictionary is not needed.\n"
                              "Please remove it.\n".format(key, color))
 
-    # then validate the other paramters.
+    # then validate the other parameters.
 
     # the color should match
     if color != cfg["color"]:
@@ -248,8 +248,6 @@ for color, cfg in cfg_matches.items():
                              "\tdictionary needs to be a list with at\n"
                              "\tleast one entry.".format(key, color))
 
-    # TODO: verify all of these
-
     # the plot_lims needs to be a list of 4 values.
     if type(cfg["plot_lims"]) != list or len(cfg["plot_lims"]) != 4:
         raise ValueError("The parameter plot_lims in the {} configuration\n"
@@ -265,9 +263,18 @@ for color, cfg in cfg_matches.items():
                              "\tdictionary needs to be a list with 2 items,\n"
                              "\tas described in config.py.".format(key, color))
 
-    # TODO: verify all of these
+    for key in ["brighter_mag_cut", "dimmer_mag_cut"]:
+        if type(cfg[key]) not in [float, int]:
+            raise ValueError("The parameter {} in the configuration dict\n"
+                             "\tneeds to be a single value (ie not\n"
+                             "\ta list, even if it only has one item)."
+                             "".format(key))
 
-    # TODO: check brighter and dimmer mag cut
+    # the bluer and redder color cuts need to have the same length
+    if len(cfg["bluer_color_cut"]) != len(cfg["redder_color_cut"]):
+        raise ValueError("The length of the `bluer_color_cut` and\n"
+                         "\t`redder_color_cut` lists need to be the same\n"
+                         "\tin the {} dictionary in config.py".format(color))
 
 
 
