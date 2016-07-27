@@ -1,8 +1,4 @@
-#  rsz_irac parameter file  
-
-# ------- THE CLUSTERS THIS IS USED ON MUST BE AT z > 0.7!  -------------------
-# IF THE CLUSTER IS AT LOWER REDSHFIT THAN THIS IT WILL RETURN WRONG ANSWERS
-# -----------------------------------------------------------------------------
+# ------------------ rsz parameter file ---------------------------------------
 
 # -----------  Directories ----------------------------------------------------
 #
@@ -11,14 +7,14 @@
 #
 # - Catalog directory: The code will look for catalogs in the directory below. 
 # - extension: The extension the catalogs have. The code will only open files
-#     with this extension.
+#     with this extension. Include the . (ie use ".cat", not just "cat")
 # - plot_directory: The directory the plots will be saved in. There will be one
 #     file for each catalog, which will have multiple pdfs, one for each plot
 #     as specified in the plots section.
 # - results_file: Location and name of the file where the results will be 
 #     saved. It will be a text file giving the redshift and error for each 
 #     catalog.
-# - rs_catalog_dir: The location where the red sequence catalogs will be stored. 
+# - rs_catalog_dir: The location where the red sequence catalogs will be saved.
 #     If you don't want RS catalogs, enter -99.
 #
 # -----------------------------------------------------------------------------
@@ -29,10 +25,10 @@ plot_directory = plots/
 results_file = results.txt
 rs_catalog_dir = rs_catalogs/
 
-# -----------    Catalogs   ------------------------------------------------------
+# -----------    Catalogs   ---------------------------------------------------
 #
 # - type: specify either "flux" or "mag", depending on whether your catalog
-#     contins fluxes or magnitudes.
+#     contains fluxes or magnitudes.
 # - mag_zeropoint: When using fluxes, this is the zeropoint to convert to 
 #     AB mags, according to mag_AB = -2.5 log(F) + mag_zeropoint. 
 #     If you fluxes are in microJanskys, this will be 23.9. This 
@@ -43,7 +39,7 @@ rs_catalog_dir = rs_catalogs/
 # Note: The code uses AB mags under the hood, which is why we need this info.
 # 
 # The rest of the parameters specify the columns where each of the following 
-#     things are located in the catalog. This uses Python idexing, which
+#     things are located in the catalog. This uses Python indexing, which
 #     starts at zero. Negative indexing also works, so the last column can be 
 #     specified as -1 if you want. If your catalog doesn't have a certain
 #     thing, use -99. For some things that's perfectly fine. Read the wiki on 

@@ -47,6 +47,8 @@ def parse_config():
             params[line.split()[0]] = line.split()[2]
     config_file.close()
 
+    _validate_param(params)
+
     # turn the path variables into absolute paths, if they were passed in in
     #  some other format.
     paths = ["catalog_directory", "plot_directory",
@@ -58,6 +60,51 @@ def parse_config():
     params["mag_zeropoint"] = float(params["mag_zeropoint"])
 
     return params
+
+
+def _validate_param(param):
+    """
+    See if the user has entered all the parameters correctly.
+
+    This doesn't validate everything, since there are some things that will
+    be checked later. This just checks the easily-checkable from here stuff.
+
+    :param param: Parameter dictionary before things are cleaned up.
+    :return: Nothing, but will throw an error if things don't work.
+    """
+    # check if all keys exist
+    all_keys = ["catalog_directory", "extension", "plot_directory",
+                "results_file", "rs_catalog_dir", "type",
+                "mag_zeropoint", "mag_system", "ra", "dec", "dist",
+                "CMD", "fitting_procedure", "final_CMD", "location",
+                "interactive"]
+
+    for key in all_keys:
+        if key not in param:
+            raise ValueError("The value {} is missing from the param file."
+                             "".format(key))
+
+    # then check that there aren't any extras
+    for key in param:
+        if key not in all_keys:
+            if type(param[key]) is not int:
+                raise ValueError("You made a mistake when entering the\n"
+                                 "parameter {}. It ")
+
+    # verify the flux paramters
+    if param["type"] not in ["flux", "mag"]:
+        raise ValueError("The 'type' parameter needs to be either\n"
+                         "\t'flux' or 'mag'")
+    if param["mag_system"] not in ["ab", "vega"]:
+        raise ValueError("The parameter 'mag_system' needs to be either\n"
+                         "'ab' (note the lowercase) or 'vega'.")
+
+    for key in ["CMD", "fitting_procedure", "final_CMD", "location",
+                "interactive"]:
+        if param[key] not in ["0", "1"]:
+            raise ValueError("The parameter {} needs to be either "
+                             "'0' or '1'.".format(key))
+
 
 
 def fitting_combos(params):
