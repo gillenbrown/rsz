@@ -879,39 +879,47 @@ class Cluster(object):
         rs_formatter = " {:<10}"
         for color in self.z:
             header += rs_formatter.format(color.replace("sloan_", "") + "_RS")
+        try:
+            cat = open(filepath, "w")
+        except IOError:
+            raise IOError("The location to save the RS catalogs could not\n"
+                          "\tbe located. Make sure you specified the \n"
+                          "\t'rs_catalog_dir' parameter appropriately.\n"
+                          "\tThe code will create new files, but not new "
+                          "directories.")
+        # I want the headers to line up over the data
+        cat.write(header + "\n")
 
-        with open(filepath, "w") as cat:
-            # I want the headers to line up over the data
-            cat.write(header + "\n")
+        for source in self.sources_list:
+            line = coords_formatter.format(source.ra, source.dec)
+            # TODO: test this with mags and flux
 
-            for source in self.sources_list:
-                line = coords_formatter.format(source.ra, source.dec)
-                # TODO: test this with mags and flux
-
-                for band in source.mags:
-                    mag = source.mags[band].value
-                    magerr = source.mags[band].error
-                    if d_type == "mags":
-                        if params["mag_system"] == "ab":
-                            line += phot_formatter.format(mag, magerr)
-                        else:
-                            mag += config.ab_to_vega[band]  # convert to Vega
-                            line += phot_formatter.format(mag, magerr)
+            for band in source.mags:
+                mag = source.mags[band].value
+                magerr = source.mags[band].error
+                if d_type == "mags":
+                    if params["mag_system"] == "ab":
+                        line += phot_formatter.format(mag, magerr)
                     else:
-                        flux = self.mag_to_flux(mag, params["mag_zeropoint"])
-                        fluxerr = self.mag_errors_to_flux_errors(magerr, flux)
+                        mag += config.ab_to_vega[band]  # convert to Vega
+                        line += phot_formatter.format(mag, magerr)
+                else:
+                    flux = self.mag_to_flux(mag, params["mag_zeropoint"])
+                    fluxerr = self.mag_errors_to_flux_errors(magerr, flux)
 
-                        line += phot_formatter.format(flux, fluxerr)
+                    line += phot_formatter.format(flux, fluxerr)
 
-                # add whether or not it's centered
-                line += center_formatter.format(source.near_center)
+            # add whether or not it's centered
+            line += center_formatter.format(source.near_center)
 
-                # then add RS information
-                for color in self.z:
-                    line += rs_formatter.format(source.RS_member[color])
+            # then add RS information
+            for color in self.z:
+                line += rs_formatter.format(source.RS_member[color])
 
-                line += "\n"
-                cat.write(line)
+            line += "\n"
+            cat.write(line)
+        cat.close()
+
 
 
 def save_as_one_pdf(figs, filename):
@@ -928,7 +936,14 @@ def save_as_one_pdf(figs, filename):
         return
 
     # if so, save them.
-    pp = PdfPages(filename)
+    try:
+        pp = PdfPages(filename)
+    except IOError:
+        raise IOError("The location to save the plots could not be found.\n"
+                      "\tMake sure you specified the 'plot_directory'\n"
+                      "\tparameter appropriately. The code will create\n"
+                      "\tnew files, but not new directories.")
+
     for fig in figs:
         pp.savefig(fig)
     pp.close()

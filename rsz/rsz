@@ -84,13 +84,6 @@ def _validate_param(param):
             raise ValueError("The value {} is missing from the param file."
                              "".format(key))
 
-    # then check that there aren't any extras
-    for key in param:
-        if key not in all_keys:
-            if type(param[key]) is not int:
-                raise ValueError("You made a mistake when entering the\n"
-                                 "parameter {}. It ")
-
     # verify the flux paramters
     if param["type"] not in ["flux", "mag"]:
         raise ValueError("The 'type' parameter needs to be either\n"
@@ -154,6 +147,12 @@ def get_catalogs(parent_directory, extension):
         for filename in filenames:
             if filename.endswith(extension):
                 catalogs.append(os.path.join(dirpath, filename))
+
+    if len(catalogs) == 0:
+        raise ValueError("\tThe code didn't find any catalogs.\n"
+                         "\tMake sure that you specified the \n"
+                         "\t'catalog_directory' and 'extension` \n"
+                         "\tparameters appropriately in the param file.")
     return catalogs
 
 
@@ -163,7 +162,13 @@ def start_output(params, colors):
     :param params: parameter dictionary
     :return: open file object pointing to the output file.
     """
-    output_file = open(params["results_file"], "w")
+    try:
+        output_file = open(params["results_file"], "w")
+    except IOError:
+        raise IOError("The place to save the results file could not be \n"
+                      "\tlocated. Make sure you specified the `results_file`\n"
+                      "\tparameter appropriately. The code will create new\n"
+                      "\tfiles, but not new directories.")
     # write the header, which looks really ugly in this format. It looks nice
     # when printed, though, I promise.
     header = "# " + 22*"-" + 3*" " + "rsz results" + 3*" " + 23*"-" + "\n" + \
