@@ -46,17 +46,18 @@ rs_catalog_dir = rs_catalogs/
 # The rest of the parameters specify the columns where each of the following 
 #     things are located in the catalog. This uses Python indexing, which
 #     starts at zero. Negative indexing also works, so the last column can be 
-#     specified as -1 if you want. If your catalog doesn't have a certain
-#     thing, use -99. For some things that's perfectly fine. Read the wiki on 
-#     GitHub for more info about how the code uses these.
+#     specified as -1 if you want. 
 # - ra: right ascension
 # - dec: declination
-# - dist: distance of the object from the cluster center in arcseconds.
+# - dist: distance of the object from the cluster center in arcseconds. If you 
+#         don't have this information, enter -99. The code will find a cluster
+#         center and use distances from that. 
 # 
 # Then we have the photometric information in the catalog. The code takes
 # flux/mag information for each band. It does not take colors at the moment.
 # Each band needs a flux/mag and error. Notate errors by appending "_err" to 
 # the name of the band.
+#
 # The name you give the column determines which filter file EzGal gets to 
 # create the models. Use the name that matches the EzGal filter files.
 # See the `ezgal/data/filters` directory for a list of all filters, or see
@@ -110,7 +111,7 @@ location = 1
 # The code has an option to do the fitting in interactive mode. If you select
 # interactive mode, the code will show a couple of plots after each cluster
 # is fitted. It will display the final CMD and location plots described above.
-# You then are able to flag the cluster as interesting or bad. If you glad it
+# You then are able to flag the cluster as interesting or bad. If you flag it
 # as interesting, that columns will be marked in the output file. You can also
 # flag the redshift fit as bad. This will increase the flags for that cluster
 # in the output file, too.
