@@ -87,8 +87,8 @@ class Cluster(object):
         except ValueError:  # That's the error from a failed float conversion.
             return item
 
-    @staticmethod
-    def get_ra_dec(params, split_line):
+
+    def get_ra_dec(self, params, split_line):
         """Parses the line to get the ra and dec.
 
         If the user doesn't specify ra and dec, then return None.
@@ -97,15 +97,41 @@ class Cluster(object):
         :param split_line: Line of the catalog split into the components.
         :return: ra and dec as a tuple
         """
-        if params['ra'] != "-99" and params["dec"] != "-99":
+        error_message = "The index for {} could not be located in the {}\n" \
+                        "\tcatalog. Please fix the indexing in the param file."
+        try:
             ra = split_line[int(params["ra"])]
+        except IndexError:
+            raise ValueError(error_message.format("RA", self.name))
+
+        try:
             dec = split_line[int(params["dec"])]
-        else:
-            ra, dec = None, None
+        except IndexError:
+            raise ValueError(error_message.format("Dec", self.name))
+
         return ra, dec
 
-    @staticmethod
-    def get_mags(params, split_line):
+    def _check_valid_int(self, params, band):
+        try:
+            return int(params[band])
+        except ValueError:
+            raise ValueError("The parameter {} is formatted incorrectly.\n"
+                             "\tIf it is supposed to be the index of a\n"
+                             "\tband, then it should just be an integer.\n"
+                             "\tIf not, then then this parameter is not\n"
+                             "\tused by the code. Please remove it."
+                             "".format(band))
+
+    def _check_valid_idx(self, split_line, idx, name):
+        try:
+            return split_line[idx]
+        except IndexError:
+            raise ValueError("The index for {} could not be found in the {} \n"
+                             "\tcatalog. Check the index in the param file."
+                             .format(name, self.name))
+
+
+    def get_mags(self, params, split_line):
         """ Parses the config file to get the magnitudes.
 
         :param params: Parameter dictionary that is passed all around the code.
@@ -113,12 +139,6 @@ class Cluster(object):
         :return: ch1, ch2, ch1-ch2. Each will be in AB mags, and returned as
                  a data object, to include the errors.
         """
-        # check that they did the type and mags right
-        if params["type"] not in ["mag", "flux"] or \
-           params["mag_system"] not in ["vega", "ab"]:
-            raise TypeError("Either type or mags wasn't specified correctly"
-                            "in the parameter file.")
-
         # see which bands were specified in the param file
         non_band_params = ["catalog_directory", "extension",
                            "plot_directory", "results_file", "rs_catalog_dir",
@@ -133,26 +153,32 @@ class Cluster(object):
             # the key we have is either a flux/mag or an error
             if not key.endswith("_err"):
                 bands.append(key)
+                if key + "_err" not in params:
+                    raise ValueError("The band {} does not have an error\n"
+                                     "\tassociated with it. Please include\n"
+                                     "\tthat in the param file. If that \n"
+                                     "\tparameter is something other than\n"
+                                     "\ta band, please remove it. It is not\n"
+                                     "\tneeded by the code.".format(key))
 
         mags = dict()
         for band in bands:
-            band_idx = int(params[band])
-            band_err_idx = int(params[band + "_err"])
+            band_idx = self._check_valid_int(params, band)
+            band_err_idx = self._check_valid_int(params, band + "_err")
 
-            band_data = split_line[band_idx]
-            band_data_err = split_line[band_err_idx]
+            band_data = self._check_valid_idx(split_line, band_idx, band)
+            band_data_err = self._check_valid_idx(split_line, band_err_idx,
+                                                  band + "_err")
 
             # convert fluxes to magnitudes if need be
             if params["type"] == "flux":
-
                 if band_data == 0:
                     # give it a slightly negative flux, which will be
                     # interpreted as a bad mag
                     band_data = -0.1
-                # calculate magerr first, since we need to use the flux
+                # calculate magnitude err first, since we need to use the flux
                 band_data_err = Cluster.percent_flux_errors_to_mag_errors(
                     band_data_err / band_data)
-                # print band_data
                 band_data = Cluster.flux_to_mag(band_data,
                                                 params["mag_zeropoint"])
 
@@ -162,15 +188,14 @@ class Cluster(object):
                     band_data -= config.ab_to_vega(band)
                 except KeyError:
                     raise KeyError("Please specify the AB/Vega conversion "
-                                   "for {} in config.py.".format(band))
+                                   "\tfor {} in config.py.".format(band))
 
             # convert to Data type, and add to dictionary
             mags[band] = data.Data(band_data, band_data_err)
 
         return mags
 
-    @staticmethod
-    def get_dist(params, split_line):
+    def get_dist(self, params, split_line):
         """Parse the line to get the distance from center.
 
         :param params: Parameter dictionary that is passed all around the code.
@@ -178,7 +203,12 @@ class Cluster(object):
         :return: The distance of the object from the cluster center.
         """
         if params["dist"] != "-99":
-            return split_line[int(params["dist"])]
+            try:
+                return split_line[int(params["dist"])]
+            except IndexError:
+                raise ValueError("The index for dist could not be found in\n"
+                                 "\tthe {} catalog. Please fix the indexing\n"
+                                 "\tin the param file.".format(self.name))
         else:
             return None
 

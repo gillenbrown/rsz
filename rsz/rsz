@@ -97,6 +97,11 @@ def _validate_param(param):
         if param[key] not in ["0", "1"]:
             raise ValueError("The parameter {} needs to be either "
                              "'0' or '1'.".format(key))
+    try:
+        float(param["mag_zeropoint"])
+    except ValueError:
+        raise ValueError("The 'mag_zeropoint' parameter in the param file\n"
+                         "\tmust be a single float or integer.")
 
 
 
