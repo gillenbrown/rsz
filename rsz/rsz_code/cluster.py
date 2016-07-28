@@ -889,7 +889,8 @@ class Cluster(object):
         :returns: none, but the catalog is saved.
         """
 
-        filepath = params["rs_catalog_dir"] + os.sep + self.name + ".rs.cat"
+        filepath = params["rs_catalog_dir"] + os.sep + self.name + ".rs" + \
+            params["extension"]
 
         # get the type of info, and make a header using that
         d_type = params["type"]
