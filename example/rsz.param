@@ -100,4 +100,21 @@ fitting_procedure = 0
 final_CMD = 1
 location = 1
 
+# ---------------------- Interactive Mode -------------------------------------
+#
+# The code has an option to do the fitting in interactive mode. If you select
+# interactive mode, the code will show a couple of plots after each cluster
+# is fitted. It will display the final CMD and location plots described above.
+# You then are able to flag the cluster as interesting or bad. If you glad it
+# as interesting, that columns will be marked in the output file. You can also
+# flag the redshift fit as bad. This will increase the flags for that cluster
+# in the output file, too.
+#
+# Note that the plots you select above are created in the background and still
+# saved even in interactive mode.
+#
+# Select 1 for interactive mode, 0 for regular mode.
+#
+# -----------------------------------------------------------------------------
+
 interactive = 0
