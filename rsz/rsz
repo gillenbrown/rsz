@@ -267,10 +267,14 @@ def main():
              "|" + 70 * " " + "|\n" + \
              "+" + 70 * "-" + "+\n"
     print header
-    print "Reading parameter file..."
+    print "Reading parameter file...\n"
     # parse the config file, find the catalogs, and start the output
     params = parse_config()
     bands, fit_combos = fitting_combos(params)
+    # notify the user of the bands we will use
+    print "Redshift fitting will be done in the following bands: \n" + \
+          ", ".join(fit_combos) + "\n"
+
     catalogs = get_catalogs(params["catalog_directory"], params["extension"])
 
     output_file = start_output(params, fit_combos)
