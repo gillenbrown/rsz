@@ -34,6 +34,9 @@ class Cluster(object):
 
         self.interesting = 0
 
+        self.center_ra = None
+        self.center_dec = None
+
         # then read in the objects in the catalog
         self.read_catalog(filepath, params)
 
@@ -419,8 +422,7 @@ class Cluster(object):
 
         return edges
 
-    @staticmethod
-    def _centering(ras, decs):
+    def _centering(self, ras, decs):
         """
         Finds a guess for the center of the cluster if the user doesn't know.
 
@@ -481,7 +483,8 @@ class Cluster(object):
         ra_cen = min(ras) + ra_idx * ra_bin_size + ra_bin_size / 2.0
         dec_cen = min(decs) + dec_idx * dec_bin_size + dec_bin_size / 2.0
 
-        return ra_cen, dec_cen
+        self.center_ra = ra_cen
+        self.center_dec = dec_cen
 
     def _location_cut(self, radius, params):
         """
@@ -509,14 +512,14 @@ class Cluster(object):
 
         # we may need to find our own centers
         if params["dist"] == "-99":
-            center_ra, center_dec = Cluster._centering(ras, decs)
+            self._centering(ras, decs)
 
             for source in self.sources_list:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
-                dec_radians = center_dec * np.pi / 180.0
-                ra_sep = (source.ra - center_ra) * np.cos(dec_radians)
-                dec_sep = source.dec - center_dec
+                dec_radians = self.center_dec * np.pi / 180.0
+                ra_sep = (source.ra - self.center_ra) * np.cos(dec_radians)
+                dec_sep = source.dec - self.center_dec
                 source.dist = np.sqrt(ra_sep**2 + dec_sep**2) * 3600
 
         for source in self.sources_list:

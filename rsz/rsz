@@ -211,6 +211,14 @@ def start_output(params, colors):
              "#                clusters as interesting. This is on a \n" + \
              "#                per-cluster basis, not per-band.\n"
 
+    if params["dist"] == "-99":
+        header +=  \
+             "#\n" + \
+             "# Since you didn't pass in the distance from each object\n" + \
+             "# to the overdensity center, the code found it's own.\n" + \
+             "# - center_ra: Right Ascension of the cluster center.\n" + \
+             "# - center_dec: Declination of the cluster center.\n"
+
     header += "#\n" + \
               "#" + 63*"-" + "\n" + "#\n"
     output_file.write(header)
@@ -224,6 +232,8 @@ def start_output(params, colors):
 
     if params["interactive"] == "1":
         labels += " interesting"
+    if params["dist"] == "-99":
+        labels += " {:12s} {:12s}".format("center_ra", "center_dec")
     labels += "\n"
 
     output_file.write(labels)
@@ -239,12 +249,16 @@ def add_to_catalog(output_file, the_cluster, params):
     """
     line = '{:27s}'.format(the_cluster.name.replace(" ", "_"))
     for color in the_cluster.z:
-        line += " {:<12f} {:<12f} {:<12f} {:<14d}".format(the_cluster.z[color].value,
-                                                          the_cluster.z[color].upper_error,
-                                                          the_cluster.z[color].lower_error,
-                                                          the_cluster.flags[color])
+        line += " {:<12f} {:<12f} {:<12f} {:<14d}" \
+                "".format(the_cluster.z[color].value,
+                          the_cluster.z[color].upper_error,
+                          the_cluster.z[color].lower_error,
+                          the_cluster.flags[color])
     if params["interactive"] == "1":
-        line += " {}".format(the_cluster.interesting)
+        line += " {:<11d}".format(the_cluster.interesting)
+    if params["dist"] == "-99":
+        line += " {:<12.7f} {:<12.7f}".format(the_cluster.center_ra,
+                                              the_cluster.center_dec)
 
     line += "\n"
     output_file.write(line)
