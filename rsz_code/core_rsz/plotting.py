@@ -8,7 +8,6 @@ try:
 except ImportError:
     pass
 
-import model
 import data
 import config
 
@@ -103,7 +102,7 @@ def add_vega_labels(ax, cfg):
     return vega_color_ax, vega_mag_ax
 
 
-def add_all_models(fig, ax, steal_axs, cfg):
+def add_all_models(fig, ax, steal_axs, cfg, models):
     """
     Adds the RS models to the given axis, adding a colorbar to code redshift.
 
@@ -120,7 +119,7 @@ def add_all_models(fig, ax, steal_axs, cfg):
     """
 
     # get the model predictions, with fairly large spacing.
-    models = model.model_dict(0.05)[cfg["color"]]
+    models = models[cfg["color"]]
 
     # set the colormap, so we can color code lines by redshift
     cmap = plt.get_cmap("RdYlBu_r")

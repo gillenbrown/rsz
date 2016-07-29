@@ -137,8 +137,16 @@ def model_dict(spacing):
              the values are the models themselves.
     """
 
+    # We need to figure out which filters we need info for.
+    filters = set()
+    for color in config.cfg_matches:
+        band1, band2 = color.split("-")
+        filters.add(band1)
+        filters.add(band2)
+    filters = list(filters)
+
     # get the EzGal model object
-    model = _make_model()
+    model = _make_model(filters)
 
     # decide the formation redshift and observed redshift
     zf = 3.0
@@ -148,17 +156,8 @@ def model_dict(spacing):
     model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,
                             z=0.023)
 
-    # We need to figure out which filters we need info for.
-    filters = set()
-    for color in config.cfg_matches:
-        band1, band2 = color.split("-")
-        filters.add(band1)
-        filters.add(band2)
-    filters = list(filters)
-
     # then get mags in those filters
-    mags = model.get_apparent_mags(zf, filters=filters, zs=zs,
-                                   ab=True)
+    mags = model.get_apparent_mags(zf, filters=filters, zs=zs, ab=True)
 
     # initialize an empty dictionary that will be filled with RSModel objects.
     # This will be a nested dictionary. The first set of keys will be the
@@ -205,7 +204,7 @@ def model_dict(spacing):
     return rs_models
 
 
-def _make_model():
+def _make_model(filters):
     """
     Make an EzGal object.
 
@@ -214,16 +213,18 @@ def _make_model():
 
     :return: EzGal object.
     """
-
-    evolved_model_name = "bc03_exp_0.1_z_0.02_chab_evolved_zf_3.0.model"
+    evolved_model_name = "bc03_exp_0.1_z_0.02_chab_evolved.model"
     default_model_name = "bc03_exp_0.1_z_0.02_chab.model"
 
     try:  # to open the evolved model
         model = ezgal.ezgal(evolved_model_name)
+        # print model.filters
+        if not all(filt in model.filters for filt in filters):
+            _evolve_model(model, filters, evolved_model_name)
     except ValueError:  # the default model wasn't found
         try:  # to open the default model
             model = ezgal.model(default_model_name)
-            _evolve_model(model, save_name=evolved_model_name)
+            _evolve_model(model, filters, save_name=evolved_model_name)
 
         except ValueError:  # the default model doesn't exist
             raise ValueError("Please download the default model, which is "
@@ -233,7 +234,7 @@ def _make_model():
     return model
 
 
-def _evolve_model(model, save_name):
+def _evolve_model(model, filters, save_name):
     """
     Will do model evolution for a model, and save the resulting model.
 
@@ -241,17 +242,33 @@ def _evolve_model(model, save_name):
     :return:None, but model will be saved.
     """
     print "Calculating model evolution, will take a while..."
-    print "Only needs to be done once, though."
+    print "Only needs to be done once, unless you add more filters later."
+    print "Please ignore the warnings that will follow. The divide by zero\n" \
+          "errors are from EzGal's internals and are fine\n." \
+          "The deprecation warnings are from EzGal using \n" \
+          "Pyfits, which is old.\n"
+
     # add a bunch of formation redshifts, too
-    model.set_zfs(np.arange(1.0, 4.5, 0.5))
+    zfs = np.arange(1.0, 4.5, 0.5)
+    model.set_zfs(zfs)
 
-    # find the place ezgal stores all the filters
-    filters_dir = model.data_dir + "filters" + os.sep
+    model.set_normalization(filter='ks', mag=10.9, apparent=True, vega=True,
+                            z=0.023)
+    try:
+        for filt in filters:
+            if filt not in model.filters:
+                model.add_filter(filt, grid=True)
+    except ValueError:
+        raise IOError("The filter file {} was not found.\n"
+                      "\tMake sure the name of the filter you gave in the\n"
+                      "\tconfig file is in the `ezgal/data/filters` \n"
+                      "\tdirectory. If it is a custom filter file, please \n"
+                      "\tadd it there.".format(filt))
 
-    # make a list of all filters in that directory to use in the model.
-    all_filters = [f for f in os.listdir(filters_dir) if f != "README"]
-    for f in all_filters:
-        model.add_filter(f)
+    # calculate mags to ensure things get calcuated
+    for zf in zfs:
+        zs = np.arange(0.1, zf, 0.01)
+        model.get_apparent_mags(zf, filters=filters, zs=zs, ab=True)
 
     # Save the model.
     location = model.data_dir + "models" + os.sep + save_name

@@ -21,6 +21,7 @@ class Cluster(object):
     # made things a lot easier. And since the predictions are the same for
     # all cluster, this is a class variable rather than an instance variable.
     models = model.model_dict(0.01)
+    low_res_models = model.model_dict(0.05)
 
     def __init__(self, filepath, params):
         self.name = self._name(filepath, params["extension"])
@@ -271,7 +272,6 @@ class Cluster(object):
                  instance, to account for the possibility of different upper
                  and lower limits on the redshift.
         """
-
         # do a location cut, to only focus on galaxies near the center of
         # the image.
         self._location_cut(1.0, params)
@@ -285,7 +285,7 @@ class Cluster(object):
             ax = plotting.cmd(self, ax, cfg)
             vc_ax, vmax = plotting.add_vega_labels(ax, cfg)
             plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
-                                    cfg=cfg)
+                                    cfg=cfg, models=self.low_res_models)
             self.figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
@@ -543,7 +543,7 @@ class Cluster(object):
 
         # Get models with a large spacing, since we don't need a lot of
         # accuracy here.
-        models = model.model_dict(0.05)[cfg["color"]]
+        models = self.low_res_models[cfg["color"]]
 
         # set placeholder values that will be replaced as we go
         max_nearby = -999

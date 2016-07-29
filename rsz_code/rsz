@@ -5,8 +5,8 @@
 import os
 import sys
 
-from rsz_code import config
-from rsz_code import cluster
+from core_rsz import config
+from core_rsz import cluster
 
 
 def _open_default_param():
@@ -54,7 +54,8 @@ def parse_config():
     paths = ["catalog_directory", "plot_directory",
              "results_file", "rs_catalog_dir"]
     for path in paths:
-        params[path] = os.path.abspath(params[path])
+        if params[path] != "-99":
+            params[path] = os.path.abspath(params[path])
 
     # turn things into the right data type
     params["mag_zeropoint"] = float(params["mag_zeropoint"])
