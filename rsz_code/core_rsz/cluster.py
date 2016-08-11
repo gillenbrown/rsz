@@ -912,7 +912,7 @@ class Cluster(object):
 
         rs_formatter = " {:<10}"
         for color in self.z:
-            header += rs_formatter.format(color.replace("sloan_", "") + "_RS")
+            header += rs_formatter.format("RS_" + color.replace("sloan_", ""))
         try:
             cat = open(filepath, "w")
         except IOError:
