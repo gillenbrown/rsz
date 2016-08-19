@@ -12,6 +12,7 @@ example/rsz_rz.param
 example/rsz_irac.param
 example/irac_results.txt
 example/rz_results.txt
+example/results.txt
 *.pyc
 */correction/
 

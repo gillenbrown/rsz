@@ -95,7 +95,8 @@ import decimal
 #                  guess isn't very good. Don't make it too big, though, since
 #                  including lots of blue galaxies (that often have smaller
 #                  error bars) can drag the fit away from the true RS. The
-#                  final value should be roughly the size of the real RS. To
+#                  final value should be roughly the size of the real RS, or
+#                  maybe slightly smaller to increase "signal to noise". To
 #                  tune these parameters, enable the `fitting_procedure`
 #                  plot in the parameter file for your run, and see whether the
 #                  color cuts are working properly.
@@ -120,6 +121,17 @@ import decimal
 #        model_c - bluer_color_cut[i] < c < model_c + redder_color_cut[i]
 #    Only galaxies that pass both of these cuts will be called red squence
 #    galaies.
+#
+#
+# After the redshift is fitted, we select the final RS members. This is a
+#     different value than the final value in the color cuts because those
+#     might be tuned to pick the densest part of the RS, rather than the
+#     whole things. These parameters should enclose the whole RS.
+# final_rs_mag: A two item list that contains the brighter, then dimmer
+#               magnitude cut. They should follow the same rules as they
+#               did above.
+# final_rs_color: A two item list that contains the bluer, then redder
+#                 color cuts.
 #
 # -----------------------------------------------------------------------------
 

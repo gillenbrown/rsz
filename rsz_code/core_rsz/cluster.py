@@ -337,7 +337,7 @@ class Cluster(object):
                                 cfg["final_rs_color"][0],
                                 cfg["final_rs_color"][1],
                                 cfg["final_rs_mag"][0],
-                                cfg["final_rs_mag"][0],
+                                cfg["final_rs_mag"][1],
                                 cfg)
 
         # and do the location check based on these RS values
@@ -784,10 +784,10 @@ class Cluster(object):
         """
 
         # set cuts to be used each time
-        bluer = cfg["bluer_color_cut"][-1]
-        redder = cfg["redder_color_cut"][-1]
-        brighter = cfg["brighter_mag_cut"]
-        dimmer = cfg["dimmer_mag_cut"]
+        bluer = cfg["final_rs_color"][0]
+        redder = cfg["final_rs_color"][1]
+        brighter = cfg["final_rs_mag"][0]
+        dimmer = cfg["final_rs_mag"][1]
 
         # set the red sequence members for the accepted red sequence.
         self._set_rs_membership(self.z[cfg["color"]].value,
@@ -830,10 +830,10 @@ class Cluster(object):
         blue_rs = self._count_galaxies(cfg["color"])
 
         # Compare the numbers in the 3 red sequences. Set the flag if the
-        # number of galaxies in the best red sequence is less than twice
+        # number of galaxies in the best red sequence is less than 1.5 times
         # the sum of the two offset red sequences. The 1.5 times is arbitrary.
         # It was chosen to make things I thought looked bad have this flag.
-        if ((red_rs + blue_rs) * 1.25) >= best_rs:
+        if ((red_rs + blue_rs) * 1.5) >= best_rs:
             self.flags[cfg["color"]] += 4
 
     def _count_galaxies(self, color):

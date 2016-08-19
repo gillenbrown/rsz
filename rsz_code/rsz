@@ -333,6 +333,8 @@ def main():
         # update progress
         sys.stdout.write("\r")  # go back to the beginning of the line
         sys.stdout.write("{}/{} clusters finished. ".format(i, len(catalogs)))
+        if params["interactive"] == "1":
+            print ""  # creates new line for nicer formatting.
         sys.stdout.flush()
 
 
