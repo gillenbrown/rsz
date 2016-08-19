@@ -43,6 +43,17 @@ def parse_config():
     params = dict()
     for line in config_file:
         if not line.startswith("#") and not line.isspace():
+            if len(line.split()) != 3:
+                raise ValueError("The following line in the param file\n"
+                                 "\twasn't formatted properly:\n"
+                                 "\t\t'{}'\n"
+                                 "\tMake sure you didn't leave out a # at \n"
+                                 "\tthe beginning of line (if it's not meant\n"
+                                 "\tto be a parameter), or the spaces around\n"
+                                 "\tthe '=' (if it is a parameter).\n"
+                                 "\tEach parameter should only have one\n"
+                                 "\tvalue, as well."
+                                 "".format(line.strip()))
             # first item is the parameter, second is =, and third is the input
             params[line.split()[0]] = line.split()[2]
     config_file.close()
@@ -297,6 +308,8 @@ def main():
     print "Starting redshift fitting..."
     # Use sys.stdout.write instead of print so I can get an updating progress.
     sys.stdout.write("0/{} clusters finished.".format(len(catalogs)))
+    if params["interactive"] == "1":
+        print ""  # creates new line for nicer formatting.
     sys.stdout.flush()
 
 

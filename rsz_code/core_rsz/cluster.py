@@ -391,7 +391,12 @@ class Cluster(object):
                 plt.close(s_fig)
 
             plt.show(block=False)
-            flags = raw_input("Enter the flags for this cluster [i/f/enter]: ")
+            while True:
+                flags = raw_input("Enter the flags for this cluster [i/f/enter]: ")
+                if flags not in ["i", "f", ""]:
+                    print "That is not a valid choice."
+                else:
+                    break
             plt.close(fig)
 
             if flags == "f":
