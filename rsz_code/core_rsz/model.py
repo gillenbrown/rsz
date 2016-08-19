@@ -213,18 +213,19 @@ def _make_model(filters):
 
     :return: EzGal object.
     """
-    evolved_model_name = "bc03_exp_0.1_z_0.02_chab_evolved.model"
-    default_model_name = "bc03_exp_0.1_z_0.02_chab.model"
+    code_dir = os.path.dirname(os.path.realpath(__file__))
+    evolved_model = code_dir + os.sep +"bc03_exp_0.1_z_0.02_chab_evolved.model"
+    default_model = "bc03_exp_0.1_z_0.02_chab.model"
 
     try:  # to open the evolved model
-        model = ezgal.ezgal(evolved_model_name)
+        model = ezgal.ezgal(evolved_model)
         # print model.filters
         if not all(filt in model.filters for filt in filters):
-            _evolve_model(model, filters, evolved_model_name)
+            _evolve_model(model, filters, evolved_model)
     except ValueError:  # the default model wasn't found
         try:  # to open the default model
-            model = ezgal.model(default_model_name)
-            _evolve_model(model, filters, save_name=evolved_model_name)
+            model = ezgal.model(default_model)
+            _evolve_model(model, filters, save_name=evolved_model)
 
         except ValueError:  # the default model doesn't exist
             raise ValueError("Please download the default model, which is "
@@ -244,7 +245,7 @@ def _evolve_model(model, filters, save_name):
     print "Calculating model evolution, will take a while..."
     print "Only needs to be done once, unless you add more filters later."
     print "Please ignore the warnings that will follow. The divide by zero\n" \
-          "errors are from EzGal's internals and are fine\n." \
+          "errors are from EzGal's internals and are fine.\n" \
           "The deprecation warnings are from EzGal using \n" \
           "Pyfits, which is old.\n"
 
@@ -271,5 +272,4 @@ def _evolve_model(model, filters, save_name):
         model.get_apparent_mags(zf, filters=filters, zs=zs, ab=True)
 
     # Save the model.
-    location = model.data_dir + "models" + os.sep + save_name
-    model.save_model(location)
+    model.save_model(save_name)
