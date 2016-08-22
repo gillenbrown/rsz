@@ -1,8 +1,6 @@
 class Source(object):
     """
     Class representing a source (as detected by something like SExtractor).
-    For this implementation, only holds data in ch1 and ch2, since that's
-    all we need.
     """
     def __init__(self, ra, dec, mags, dist=None):
         """
@@ -53,7 +51,7 @@ class Source(object):
         """Mark sources as red sequence members if they pass the given cuts.
 
         Sources will be marked as red sequence members if they have a color
-        between blue and red, and a ch2 magnitude between bright and faint.
+        between blue and red, and a magnitude between bright and faint.
 
         Also does an error cut on the color.
 
