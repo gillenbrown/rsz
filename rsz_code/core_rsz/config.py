@@ -6,7 +6,7 @@ import decimal
 # in different band combinations. To add a new band, create a new dictionary
 # that holds all the same keys as the ones that already exist. Then add it to
 # the `config_matches` dictionary. The key is the string with the name of the
-# bands that are used, and the value is the congifuration dictionary containing
+# bands that are used, and the value is the configuration dictionary containing
 # all the parameters the code needs.
 #
 # This file also stores AB to Vega conversions, so if your filters aren't
@@ -31,19 +31,29 @@ import decimal
 #        object, since the code uses that format under the hood to avoid
 #        floating point errors. Enter the redshift into the function as a
 #        string, to avoid floating point errors when it's being created.
+#        See the existing examples.
 # z_max: maximum possible redshift to be fit. Sane format as z_min.
 #    Note: Choose these two to span a region where color is monotonic as a
 #    function of redshift.
-# correction:  This is the fit, which comes from
-#              numpy.polynomial.polynomial.polyfit
-#              It is the coefficients of the polynomial, starting with the
-#              lowest power of z. It takes uncorrected redshifts and turns
-#              them into calibrated redshifts. To find this parameter, plot
-#              rsz redshifts against well-measured redshifts, and find the
-#              function that fits. This is what goes here.
-# slope_fit: This is the fit (same as `correction`) that describes the slope
-#            of the red sequence as a function of redshift. As an initial
-#            guess, zero slope and intercept will normally be fine. To do this
+# correction:  Without any correction, the code doesn't necessarily produce
+#              absolutely correct redshifts. There can by systematic biases.
+#              To fix this, we can create a polynomial that takes uncorrected
+#              redshifts and turns them into the correct redshifts. This
+#              parameter is that polynomial. It assumes that the fit comes
+#              from `numpy.polynomial.polynomial.polyfit()` It is the
+#              coefficients of the polynomial, starting with the lowest power
+#              of z. To start, enter `[0, 1]` for this parameter. This means
+#              that the output z will be 0 + 1 * z, or just z. If you have a
+#              large sample of galaxy clusters with known redshifts, plot rsz
+#              redshifts against well-measured redshifts, and find the
+#              function that best fits, using
+#              `numpy.polynomial.polynomial.polyfit()`. This is what goes here.
+#              A linear fit is usually acceptable, and is what was used for
+#              both r-z and ch1-ch2. Note that those two both have fits close
+#              to `[0, 1]`, indicating there isn't much correction going on.
+# slope_fit: This is the fit (same format as `correction`) that describes the
+#            slope of the red sequence as a function of redshift. As an initial
+#            guess, `[0, 0]` will normally be fine. To do this
 #            properly, you need to figure out what the slope of the red
 #            sequence is as a function of redshift, then plug that info in
 #            here.
@@ -52,7 +62,7 @@ import decimal
 #            is a list of 4 items: The minimum red magnitude, the maximum
 #            red magnitude, the minimum color, and the maximum color. These
 #            are all set in AB mags. The best way to choose these it to set
-#            them to something very large, see where the points are, and hone
+#            them to span a large range, see where the points are, and hone
 #            in from there.
 #
 # ------------  Redshift Fitting Parameters  -----------
@@ -77,7 +87,7 @@ import decimal
 #              most important to determining the red sequence. The code
 #              performs a error cut, so the faint end cut isn't as important,
 #              but choosing a lower value (less faint) can often increase the
-#              signal-to-noise.
+#              "signal-to-noise", since faint galaxies don't matter as much.
 # initial_color: How much bluer, then redder, than the RS model that galaxies
 #                can be to be counted during the initial fitting process.
 #                Galaxies will pass this cut if they have a color c such that:
@@ -114,13 +124,13 @@ import decimal
 #                 galaxies improves your signal to noise. The RS is most
 #                 visible on the bright end, so going too faint here will make
 #                 it harder for the code to distinguish the real red sequence.
-#  note on all of these: For a galaxy to be selected as a red sequence member,
+#  note on these last 4: For a galaxy to be selected as a red sequence member,
 #    it must have a mag m such that
 #        model_m* - brighter_mag_cut < m < model_m* + dimmer_mag cut
-#    then for each successsive color iterations, the color c must be
+#    then for each successive color iterations, the color c must be
 #        model_c - bluer_color_cut[i] < c < model_c + redder_color_cut[i]
-#    Only galaxies that pass both of these cuts will be called red squence
-#    galaies.
+#    Only galaxies that pass both of these cuts will be called red sequence
+#    galaxies.
 #
 #
 # After the redshift is fitted, we select the final RS members. This is a
@@ -132,6 +142,18 @@ import decimal
 #               did above.
 # final_rs_color: A two item list that contains the bluer, then redder
 #                 color cuts.
+#
+# Note that the code does error checking on the config parameters here, so if
+# you've done something wrong, it will let you know what went wrong.
+#
+#  ------------ MOST IMPORTANT THING OF ALL -----------------
+#
+# IF YOU'RE HAVING TROUBLE SETTING UP A NEW BAND, PLEASE DO NOT HESITATE TO
+# EMAIL ME AT gillenbrown@gmail.com. I know this setup isn't the most elegant,
+# and my documentation doesn't explain things as well as it can.
+#
+# Also, once you properly set up a band combination, consider submitting a pull
+# request on GitHub so others can benefit from your work.
 #
 # -----------------------------------------------------------------------------
 
