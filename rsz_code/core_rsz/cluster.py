@@ -369,7 +369,7 @@ class Cluster(object):
 
             # If the user wants, plot the location of the RS members.
             if params["location"] == "1":
-                fig, ax = plt.subplots(figsize=(9, 8), tight_layout=True)
+                fig, ax = plt.subplots(figsize=(7, 7))
                 ax = plotting.location(self, ax, cfg["color"])
                 plotting.add_redshift(ax, self.z[cfg["color"]])
                 self.figures.append(fig)

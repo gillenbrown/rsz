@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mplcol
 import matplotlib.cm as cmx
 import numpy as np
+# If the user has installed betterplotlib, use its style settings.
 try:
     import betterplotlib
     betterplotlib.default_style()
@@ -11,7 +12,7 @@ except ImportError:
 import data
 import config
 
-nice_red = "#D62728"
+nice_red = "#D62728"  # hex code for the red color I'll use
 
 
 def cmd(cluster, ax, cfg):
@@ -20,7 +21,9 @@ def cmd(cluster, ax, cfg):
     will be highlighted in red.
 
     :param cluster: cluster containing the galaxies to be plotted in the CMD.
-    :return: figure AND axis objects for the plot
+    :param ax: matplotlib axes objects to plot things on.
+    :param cfg: configuration dictionary for the color combination being used.
+    :return:  axis objects for the plot
     """
 
     # throw out a few sources that don't need to be plotted.
@@ -40,7 +43,7 @@ def cmd(cluster, ax, cfg):
                 point_color = nice_red
             else:
                 point_color = "k"
-        except KeyError:
+        except KeyError:  # RS hasn't been set yet, so all are black.
             point_color = "k"
 
         ax.errorbar(x=mag, y=source_color.value, yerr=source_color.error,
@@ -56,8 +59,7 @@ def cmd(cluster, ax, cfg):
             horizontalalignment="left", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
 
-    # return both the figure and the axis so that other functions can add
-    # more cool stuff to the plot.
+    # return the axis so it can be used later
     return ax
 
 
@@ -65,15 +67,15 @@ def add_vega_labels(ax, cfg):
     """ Adds labels with magnitudes in Vega to the CMD.
 
     :param ax: axis to add Vega mags to
+    :param cfg: Configuration dictionary for the band combination of interest.
     :return: y axis, x axis that vega labels were added to. This is needed if
              you want to add more stuff to the plot later.
     """
-    # move ticks left and bottom, since we want Vega ticks on right and top
+    # move AB ticks left and bottom, since we want Vega ticks on right and top
     ax.xaxis.tick_bottom()
     ax.yaxis.tick_left()
 
-    # we store our conversion factors in the form AB_mag = Vega_mag + factor,
-    # so to get Vega mags we subtract our factor
+    # we store our conversion factors in the form Vega_mag = AB_mag + factor
     x_min = cfg["plot_lims"][0] + config.ab_to_vega[cfg["blue_band"]]
     x_max = cfg["plot_lims"][1] + config.ab_to_vega[cfg["red_band"]]
 
@@ -89,10 +91,13 @@ def add_vega_labels(ax, cfg):
     # set limits and label the new axis, using Vega mags.
     vega_mag_ax.set_xlim(x_min, x_max)
     vega_color_ax.set_ylim(y_min, y_max)
+    # then add the labels. We remove the Sloan if it's there.
     x_label = "{}  [Vega]".format(cfg["red_band"].replace("sloan_", ""))
     vega_mag_ax.set_xlabel(x_label)
+    # then move the axes to the top
     vega_mag_ax.xaxis.set_label_position("top")
     vega_mag_ax.xaxis.tick_top()
+    # do a similar thing with the y axis
     y_label = "{} - {}  [Vega]".format(cfg["blue_band"], cfg["red_band"])
     y_label = y_label.replace("sloan_", "")
     vega_color_ax.set_ylabel(y_label)
@@ -114,11 +119,14 @@ def add_all_models(fig, ax, steal_axs, cfg, models):
     :param steal_axs: List of axes that will be resized to make room for the
                       colorbar. If you made labels in Vega, those axes will
                       need to be passed to this too.
+    :param cfg: Configuration dictionary for the bands of interest.
+    :param models: Dictionary holding models. This is created in the cluster
+                   class.
     :return: none, but fig and ax are modified by adding the models and
              colorbar, as well as resizing the axes in steal_axs.
     """
 
-    # get the model predictions, with fairly large spacing.
+    # get the model predictions for the correct band combo
     models = models[cfg["color"]]
 
     # set the colormap, so we can color code lines by redshift
@@ -152,13 +160,15 @@ def add_one_model(ax, rs_model, color):
 
     :param ax: axis on which to plot the model
     :param rs_model: model to plot on the axis
+    :param color: Color the line will be plotted as. NOTE: this is not the
+                  astronomy definition of color. Pass in "black", not "ch1-ch2"
     :return: none, but ax will be modified
     """
     # make two points in the line for this RS
-    ch2s = [10, 30]
-    colors = [rs_model.rs_color(ch2) for ch2 in ch2s]
+    mags = [10, 30]
+    colors = [rs_model.rs_color(mag) for mag in mags]
     # plot that line
-    ax.plot(ch2s, colors, color=color, linewidth=0.5, zorder=0)
+    ax.plot(mags, colors, color=color, linewidth=0.5, zorder=0)
 
     # also plot the points that correspond to L*
     ax.scatter(rs_model.mag_point, rs_model.color_point, c=color,
@@ -197,6 +207,7 @@ def add_redshift(ax, redshift):
             horizontalalignment="right", verticalalignment="top",
             bbox=dict(facecolor="w", linewidth=0.0))
 
+
 def add_flags(ax, flags):
     """
     Puts the flags value in the corner of the plot.
@@ -221,9 +232,12 @@ def location(cluster, ax, color):
     regardless of whether or not they passed the location cut.
 
     :param cluster: cluster to plot the data for
-    :return: fig, ax of the plot
+    :param color: Band combination used to select the RS members (ex: ch1-ch2)
+    :return: ax of the plot
     """
 
+    # We have to make a bunch of lists before plotting everything, since there
+    # are a bunch of types of objects things can be.
     rs_member_ra, rs_member_dec = [], []
     center_ra, center_dec = [], []
     rest_ra, rest_dec = [], []
@@ -237,6 +251,8 @@ def location(cluster, ax, color):
         else:
             rest_ra.append(source.ra)
             rest_dec.append(source.dec)
+
+    # then we can plot things.
     ax.scatter(rest_ra, rest_dec, c="0.8", linewidth=0.15)
     ax.scatter(center_ra, center_dec, c="0.2", linewidth=0.15,
                label="Location Cut")
@@ -259,6 +275,10 @@ def location(cluster, ax, color):
             horizontalalignment="left", verticalalignment="center",
             bbox=dict(facecolor="w", linewidth=0.0))
     ax.invert_xaxis()  # ra is backwards
-    ax.set_aspect("equal", adjustable="box")  # we want ra and dec to be
-    # scaled the same
+    # we want the axes scaled so that ra and dec have the same scale. We have
+    # to be clever, due to that cos(dec) term in the ra distance.
+    # get the middle dec to use here
+    middle_dec = min([min(rs_member_dec), min(center_dec), min(rest_dec)])
+    ax.set_aspect(1.0 / np.cos(abs(middle_dec * np.pi / 180.0)),
+                  adjustable="datalim")
     return ax
