@@ -20,14 +20,27 @@ class Cluster(object):
     # Keeping the predictions for the red sequence with the cluster object
     # made things a lot easier. And since the predictions are the same for
     # all cluster, this is a class variable rather than an instance variable.
+    # The regular one is for fitting, the low res one is for plotting all the
+    # models at once
     models = model.model_dict(0.01)
     low_res_models = model.model_dict(0.05)
 
-    def __init__(self, filepath, params):
-        self.name = self._name(filepath, params["extension"])
+    def __init__(self, file_path, params):
+        """
+        Initialize the cluster object. Turns the file path into a nice name,
+        and sets other things to emtpy lists or zeros.
+
+        :param file_path: Path to the catalog containing the cluster. The
+                         extension will be removed to make the name.
+        :param params: Parameters dictionary from the input file.
+        """
+        self.name = self._name(file_path, params["extension"])
 
         # I'll initialize empty source list, that will be filled as we go
         self.sources_list = []
+
+        # redshift and flags are dictionaries, since they will have different
+        # values for different bancs.
         self.z = dict()
         self.flags = dict()
 
@@ -39,36 +52,46 @@ class Cluster(object):
         self.center_dec = None
 
         # then read in the objects in the catalog
-        self.read_catalog(filepath, params)
+        self.read_catalog(file_path, params)
 
     @staticmethod
-    def _name(filepath, extension):
-        filename = os.path.split(filepath)[-1]
+    def _name(file_path, extension):
+        """
+        Turns a file path into a name for the cluster. All this does is remove
+        the extension from the filename.
+
+        :param file_path: Path to the catalog containing the data for this
+                         cluster.
+        :param extension: File extension on the catalog.
+        :return: Name for this cluster.
+        """
+        # get just the filename, ignore the rest of the path.
+        filename = os.path.split(file_path)[-1]
         # just remove the extension from the filename
         return filename.rstrip(extension)
 
-    def read_catalog(self, filepath, params):
+    def read_catalog(self, file_path, params):
         """ Read the catalog, parsing things into sources.
 
         This function calls other functions to do the dirty work.
 
-        :param filepath: path of the catalog to be parsed.
+        :param file_path: path of the catalog to be parsed.
         :param params: parameter dictionary
         :return: none, but the cluster's source list variable is populated.
         """
-        with open(filepath) as cat:
-            for line in cat:
+
+        with open(file_path) as cat:
+            for line_num, line in enumerate(cat, start=1):
                 # some catalog formats aren't formatted the way I'd like (the
                 # column headers aren't commented out), so ignore that line.
-                if not line.startswith("#") and \
-                        not line.strip().startswith("id"):
+                if not line.startswith("#"):
                     # split the line, to make for easier parsing.
                     split_line = [self.to_float(i) for i in line.split()]
 
                     # get the various things from the parser functions.
-                    ra, dec = self.get_ra_dec(params, split_line)
-                    mags = self.get_mags(params, split_line)
-                    dist = self.get_dist(params, split_line)
+                    ra, dec = self.get_ra_dec(params, split_line, line_num)
+                    mags = self.get_mags(params, split_line, line_num)
+                    dist = self.get_dist(params, split_line, line_num)
 
                     # check that the user has specified the appropriate things.
                     if ra is None and dec is None and dist is None:
@@ -91,30 +114,6 @@ class Cluster(object):
         except ValueError:  # That's the error from a failed float conversion.
             return item
 
-
-    def get_ra_dec(self, params, split_line):
-        """Parses the line to get the ra and dec.
-
-        If the user doesn't specify ra and dec, then return None.
-
-        :param params: Parameter dictionary that is passed all around the code.
-        :param split_line: Line of the catalog split into the components.
-        :return: ra and dec as a tuple
-        """
-        error_message = "The index for {} could not be located in the {}\n" \
-                        "\tcatalog. Please fix the indexing in the param file."
-        try:
-            ra = split_line[int(params["ra"])]
-        except IndexError:
-            raise ValueError(error_message.format("RA", self.name))
-
-        try:
-            dec = split_line[int(params["dec"])]
-        except IndexError:
-            raise ValueError(error_message.format("Dec", self.name))
-
-        return ra, dec
-
     def _check_valid_int(self, params, band):
         try:
             return int(params[band])
@@ -126,20 +125,43 @@ class Cluster(object):
                              "\tused by the code. Please remove it."
                              "".format(band))
 
-    def _check_valid_idx(self, split_line, idx, name):
+    def _check_valid_idx(self, split_line, idx, line_number):
         try:
             return split_line[idx]
         except IndexError:
-            raise ValueError("The index for {} could not be found in the {} \n"
-                             "\tcatalog. Check the index in the param file."
-                             .format(name, self.name))
+            raise ValueError("The indexing appears to be broken on line {}\n"
+                             "\tof the {} catalog.\n "
+                             "\tCheck the indexes in the param file, as well\n"
+                             "\tas the line in that catalog itself."
+                             "".format(line_number, self.name))
+
+    def get_ra_dec(self, params, split_line, line_number):
+        """Parses the line to get the ra and dec.
+
+        If the user doesn't specify ra and dec, then return None.
+
+        :param params: Parameter dictionary that is passed all around the code.
+        :param split_line: Line of the catalog split into the components.
+        :param line_number: Line number in the catalog. Only used for error
+                            messages if something doesn't work.
+        :return: ra and dec as a tuple
+        """
+
+        ra_idx = self._check_valid_int(params, "ra")
+        dec_idx = self._check_valid_int(params, "dec")
+        ra = self._check_valid_idx(split_line, ra_idx, line_number)
+        dec = self._check_valid_idx(split_line, dec_idx, line_number)
+
+        return ra, dec
 
 
-    def get_mags(self, params, split_line):
+    def get_mags(self, params, split_line, line_number):
         """ Parses the config file to get the magnitudes.
 
         :param params: Parameter dictionary that is passed all around the code.
         :param split_line: Line of the catalog split into the components.
+        :param line_number: Line number in the catalog. Only used for error
+                            messages if something doesn't work.
         :return: ch1, ch2, ch1-ch2. Each will be in AB mags, and returned as
                  a data object, to include the errors.
         """
@@ -170,9 +192,10 @@ class Cluster(object):
             band_idx = self._check_valid_int(params, band)
             band_err_idx = self._check_valid_int(params, band + "_err")
 
-            band_data = self._check_valid_idx(split_line, band_idx, band)
+            band_data = self._check_valid_idx(split_line, band_idx,
+                                              line_number)
             band_data_err = self._check_valid_idx(split_line, band_err_idx,
-                                                  band + "_err")
+                                                  line_number)
 
             # convert fluxes to magnitudes if need be
             if params["type"] == "flux":
@@ -199,7 +222,7 @@ class Cluster(object):
 
         return mags
 
-    def get_dist(self, params, split_line):
+    def get_dist(self, params, split_line, line_number):
         """Parse the line to get the distance from center.
 
         :param params: Parameter dictionary that is passed all around the code.
@@ -207,12 +230,8 @@ class Cluster(object):
         :return: The distance of the object from the cluster center.
         """
         if params["dist"] != "-99":
-            try:
-                return split_line[int(params["dist"])]
-            except IndexError:
-                raise ValueError("The index for dist could not be found in\n"
-                                 "\tthe {} catalog. Please fix the indexing\n"
-                                 "\tin the param file.".format(self.name))
+            dist_idx = self._check_valid_int(params, "dist")
+            return self._check_valid_idx(split_line, dist_idx, line_number)
         else:
             return None
 
