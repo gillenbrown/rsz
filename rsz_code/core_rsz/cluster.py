@@ -589,30 +589,35 @@ class Cluster(object):
         including the densest part of the cluster, and throwing out most
         foregrounds.
 
-        The radius cut is done using distance from the overdensity center, if
-        that was included in the catalog, or distance from the center of the
-        image.
+        If the user specified `dist` in their catalog, use that distance. If
+        not, calculate our own center.
 
         :param radius: radius of the cut, in arcminutes.
         :return: None, but galaxies near the center are marked as having
                  near_center = True.
         """
 
+        # first we need to get all the coordinates
         ras = [source.ra for source in self.sources_list]
         decs = [source.dec for source in self.sources_list]
 
         # we may need to find our own centers
         if params["dist"] == "-99":
+            # get the center
             self._centering(ras, decs)
 
+            # then find the distance from the center for each source.
             for source in self.sources_list:
                 # Use pythagorean theorem to find distance in degrees, then
                 # multiply by 3600 to convert to arcsec
                 dec_radians = self.center_dec * np.pi / 180.0
+                # we have to account for the cosine(dec) term in the
+                # ra separation
                 ra_sep = (source.ra - self.center_ra) * np.cos(dec_radians)
                 dec_sep = source.dec - self.center_dec
                 source.dist = np.sqrt(ra_sep**2 + dec_sep**2) * 3600
 
+        # then set things as near the center if they are indeed near the center
         for source in self.sources_list:
             if source.dist < radius*60.0:  # convert radius to arcsec
                 source.near_center = True
@@ -625,11 +630,12 @@ class Cluster(object):
         galaxies near each model.
 
         It iterates through all redshifts, and counts the number of galaxies
-        that are within XXXXXXX color of the model at that redshift. Then the
+        that are within some color of the model at that redshift. Then the
         redshift that has the highest number of galaxies is the
         redshift selected. It's a quick a dirty estimate.
 
-        :return: an intial redshift estimate
+        :param cfg: The configuration dictionary for the color combination used
+        :return: an initial redshift estimate
         """
 
         # Get models with a large spacing, since we don't need a lot of
@@ -639,19 +645,25 @@ class Cluster(object):
         # set placeholder values that will be replaced as we go
         max_nearby = -999
         best_z = -999
-
         z_nearby_pairs = []
+        # ^ will be list of tuples, where each tuple is the redshift and
+        # number of nearby galaxies
 
         # Iterate through the redshifts
         for z in sorted(models):
             nearby = 0  # reset the number of nearby galaxies
 
+            # get the m* at this redshift
             this_model = models[z]
             mag_point = this_model.mag_point
+
+            # then iterate through the sources to see which are close to m*
             for source in self.sources_list:
                 if source.near_center:
+                    # get the mag and color of the source
                     source_mag = source.mags[cfg["red_band"]].value
                     source_color = source.colors[cfg["color"]].value
+
                     # get the expected RS color for a galaxy of this magnitude
                     rs_color = this_model.rs_color(source.mags[cfg["red_band"]].value)
 
@@ -679,15 +691,15 @@ class Cluster(object):
 
         # Turn this into a data object, with errors that span the maximum
         # range, since we don't have a good feeling yet
-        up_error = sorted(models.keys())[-1] - best_z
-        low_error = best_z - sorted(models.keys())[0]
+        up_error = sorted(models.keys())[-1] - best_z  # max z - best
+        low_error = best_z - sorted(models.keys())[0]  # best - min z
         z = data.AsymmetricData(best_z, up_error, low_error)
         return z
 
     def _double_red_sequence(self, nearby, color):
-        """Checks for the possiblity of a double red sequence.
+        """Checks for the possibility of a double red sequence.
 
-        Is to be used inside the initial_z funciton, since it uses the list of
+        Is to be used inside the initial_z function, since it uses the list of
         nearby galaxies as a function of redshift. It looks for two or more
         maxima in the number of red sequence galaxies simply by comparing each
         point to its neighbors.
@@ -697,6 +709,8 @@ class Cluster(object):
                        redshift. This is taken care of by the initial_z
                        function, though, so as long as it is used there
                        everything will be fine.
+        :param color: Color combination being used this time through the
+                      fitting. Needed to set the appropriate flag.
         :returns: None, but does set the cluster's flag variable if need be.
         """
         num_local_maxima = 0
@@ -731,7 +745,7 @@ class Cluster(object):
         :param bluer: maximum color difference on the blue side from the
                       characteristic color of the red sequence at the
                       magnitude of the galaxy.
-        :param redder: maximum color differenece on the red side from the
+        :param redder: maximum color difference on the red side from the
                        characteristic color of the RS
         :param brighter: maximum magnitude difference (on the bright end)
                          from the characteristic magnitude of the red
@@ -739,20 +753,21 @@ class Cluster(object):
         :param dimmer: maximum magnitude difference (on the faint end)
                          from the characteristic magnitude of the red
                          sequence.
+        :param cfg: Configuration dictionary for this color combination.
 
         As an example: At some redshift, the red sequence has a characteristic
         magnitude of 20, and a characteristic color of zero. We pass in
         bluer=0.1, redder=0.2, brighter=2.0, dimmer=1.0. Any galaxies that
         have magnitude 18 to 21 pass the magnitude cut. The color cut is
         trickier, since the RS has some slope. We find the characteristic
-        color of the red sequence at the ch2 magnitude of the galaxy (say
+        color of the red sequence at the magnitude of the galaxy (say
         0.05 for a particular galaxy). Then if the color is within the
         bounds set by bluer and redder (in this case -0.05 to 0.25), then it
         passes the color cut. If a galaxy passes both the magnitude and
         color cuts, it is marked as a red sequence galaxy.
 
         Note: This function marks galaxies both inside and outside the
-        location cut as RS members. This is because the loctaion cut may be
+        location cut as RS members. This is because the location cut may be
         smaller than the cluster (in fact this is often good to do), and we
         don't want to mark galaxies as not RS members just because they are
         outside the (possibly) small location cut.
@@ -761,8 +776,7 @@ class Cluster(object):
         """
 
         # get the model, it's characteristic magnitude, and then turn it
-        # into magnitude limits bsed on the parameters passed in
-
+        # into magnitude limits based on the parameters passed in
         rs_model = self.models[cfg["color"]][redshift]
         char_mag = rs_model.mag_point
         dim_mag = char_mag + dimmer
@@ -816,7 +830,7 @@ class Cluster(object):
                 chi_sq += ((model_color - color)/error)**2
 
             # reduce the chi square values
-            chi_sq /= len(to_fit)
+            chi_sq /= (len(to_fit) - 2)  # dof = data points - parameters - 1
             # put these values into the lists, so we can keep track of them
             chi_sq_values.append(chi_sq)
             redshifts.append(z)
@@ -830,16 +844,17 @@ class Cluster(object):
         high_idx = best_chi_index
         # find the place where the chi value is one greater than the best
         while high_idx < len(chi_sq_values) - 1 and \
-                chi_sq_values[high_idx] - best_chi < 1.0:
+                chi_sq_values[high_idx] - best_chi <= 1.0:
             # Note: len(chi_sq_values) - 1 needs that -1 so that we don't
             # end up with an high_idx that is past the end of chi_sq_values
             high_idx += 1
         # high_idx will now point to the first value where the chi squared
-        # value is one greater than the best fit value.
+        # value is one greater than the best fit value, or to the edge of the
+        # redshift range if no limit was found.
 
         # do the same thing for the low error
         low_idx = best_chi_index
-        while low_idx > 0 and chi_sq_values[low_idx] - best_chi < 1.0:
+        while low_idx > 0 and chi_sq_values[low_idx] - best_chi <= 1.0:
             low_idx -= 1
 
         # now get the redshifts corresponding to the best fit, the low
@@ -854,7 +869,6 @@ class Cluster(object):
         high_error = high_z - best_z
         low_error = best_z - low_z
         return data.AsymmetricData(best_z, high_error, low_error)
-        # TODO: that was a long function. Break it up somehow?
 
     def _clean_rs_check(self, cfg):
         """ Determine whether or not there is a clean red sequence.

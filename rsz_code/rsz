@@ -116,7 +116,6 @@ def _validate_param(param):
                          "\tmust be a single float or integer.")
 
 
-
 def fitting_combos(params):
     """
     Figure out which band combinations we can use to fit the red sequence,
