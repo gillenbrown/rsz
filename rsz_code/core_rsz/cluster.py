@@ -275,7 +275,8 @@ class Cluster(object):
 
         :param flux: flux in whatever units. Choose your zeropoint correctly
                      to make this work with the units flux is in.
-        :param zeropoint: zeropoint of the system (in mags).
+        :param zeropoint: zeropoint of the system, such that
+                          m = -2.5 log(flux) + zeropoint
         :return: magnitude that corresponds to the given flux. If flux is
                  negative, -99 is returned.
         """
@@ -285,12 +286,30 @@ class Cluster(object):
 
     @staticmethod
     def mag_to_flux(mag, zeropoint):
+        """
+        Converts a magnitude into a flux, given the zeropoint of the mag system
+
+        :param mag: Magnitude
+        :param zeropoint: Zeropoint of the magnitude system, such that
+                          m = -2.5 log(flux) + zeropoint
+        :return: flux corresponding to the given magnitude. If the mag is less
+                 than zero (which while physical, will only happen in this
+                 code if there is an error), -99 will be returned.
+        """
         if mag < 0:
             return -99
         return 10 ** ((zeropoint - mag) / 2.5)
 
     @staticmethod
     def mag_errors_to_flux_errors(mag_error, flux):
+        """
+        Converts magnitude errors into flux errors.
+
+        :param mag_error: Magnitude error
+        :param flux: Flux of the object in question. This is needed since
+                     magnitude errors correspond to percentage flux errors.
+        :return:
+        """
         if flux < 0:
             return -99
         return (flux * np.log(10) * mag_error) / 2.5
@@ -320,30 +339,32 @@ class Cluster(object):
 
         :param params: Dictionary full of the user's parameters for the
                        program from the config file.
-        :param cfg: Configuration dictionary.
-        :return: redshift of the cluster. Will be an AsymmetricData
-                 instance, to account for the possibility of different upper
-                 and lower limits on the redshift.
+        :param cfg: Configuration dictionary for the color combo in question.
+        :return: None, but the redshift of the cluster is set.
         """
         # do a location cut, to only focus on galaxies near the center of
         # the image.
-        self._location_cut(1.0, params)
+        self._location_cut(1.0, params)  # 1.0 is in arcminutes
+
+        # store the color we are working with, to make things cleaner
+        this_color = cfg["color"]
 
         # we need to initialize the flags for the cluster
-        self.flags[cfg["color"]] = 0
+        self.flags[this_color] = 0
 
         # If the user wants, plot the initial CMD with predictions
         if params["CMD"] == "1":
             fig, ax = plt.subplots(figsize=(9, 6))
             ax = plotting.cmd(self, ax, cfg)
-            vc_ax, vmax = plotting.add_vega_labels(ax, cfg)
-            plotting.add_all_models(fig, ax, steal_axs=[ax, vc_ax, vmax],
+            vega_color_ax, vega_mag_ax = plotting.add_vega_labels(ax, cfg)
+            plotting.add_all_models(fig, ax,
+                                    steal_axs=[ax, vega_color_ax, vega_mag_ax],
                                     cfg=cfg, models=self.low_res_models)
             self.figures.append(fig)
 
         # Do a quick and dirty initial redshift fitting, to get a starting
         # point.
-        self.z[cfg["color"]] = self._initial_z(cfg)
+        self.z[this_color] = self._initial_z(cfg)
 
         # If the user wants to see this initial fit, plot it.
         if params["fitting_procedure"] == "1":
@@ -351,10 +372,11 @@ class Cluster(object):
             fig, ax = plt.subplots(figsize=(9, 6))
             ax = plotting.cmd(self, ax, cfg)
             plotting.add_vega_labels(ax, cfg)
-            plotting.add_one_model(ax, self.models[cfg["color"]]
-                                                  [self.z[cfg["color"]].value],
-                                   "k")
-            plotting.add_redshift(ax, self.z[cfg["color"]].value)
+            # the following line is UGLY, and will unfortunately be
+            # repeated. The second parameter in the function call is the model
+            # in the correct color at the current redshift of the cluster.
+            plotting.add_one_model(ax, self.models[this_color][self.z[this_color].value], "k")
+            plotting.add_redshift(ax, self.z[this_color].value)
             self.figures.append(fig)
 
         # do iterations of fitting, each with a progressively smaller
@@ -362,31 +384,29 @@ class Cluster(object):
         for bluer_cut, redder_cut in zip(cfg["bluer_color_cut"],
                                          cfg["redder_color_cut"]):
             # set red sequence members based on the cuts
-            self._set_rs_membership(self.z[cfg["color"]].value,
+            self._set_rs_membership(self.z[this_color].value,
                                     bluer_cut, redder_cut,
                                     cfg["brighter_mag_cut"],
                                     cfg["dimmer_mag_cut"],
                                     cfg)
 
             # do the chi-squared fitting.
-            self.z[cfg["color"]] = self._chi_square_w_error(cfg)
+            self.z[this_color] = self._chi_square_w_error(cfg)
 
             # if the user wants, plot the procedure
             if params["fitting_procedure"] == "1":
                 fig, ax = plt.subplots(figsize=(9, 6))
                 ax = plotting.cmd(self, ax, cfg)
                 plotting.add_vega_labels(ax, cfg)
-                plotting.add_one_model(ax, self.models[cfg["color"]]
-                                                      [self.z[cfg["color"]].value],
-                                       "k")
-                plotting.add_redshift(ax, self.z[cfg["color"]].value)
+                plotting.add_one_model(ax, self.models[this_color][self.z[this_color].value], "k")
+                plotting.add_redshift(ax, self.z[this_color].value)
                 self.figures.append(fig)
 
-        # See if there is a cloud, rather than a red sequence.
+        # See if there is a red cloud, rather than a clear red sequence.
         self._clean_rs_check(cfg)
 
         # Set the final red sequence members
-        self._set_rs_membership(self.z[cfg["color"]].value,
+        self._set_rs_membership(self.z[this_color].value,
                                 cfg["final_rs_color"][0],
                                 cfg["final_rs_color"][1],
                                 cfg["final_rs_mag"][0],
@@ -394,7 +414,7 @@ class Cluster(object):
                                 cfg)
 
         # and do the location check based on these RS values
-        self._location_check(cfg["color"])
+        self._location_check(this_color)
 
         # we now have a final answer for the redshift of the cluster.
         # if the user wants, plot it up
@@ -403,58 +423,71 @@ class Cluster(object):
             fig, ax = plt.subplots(figsize=(9, 6))
             ax = plotting.cmd(self, ax, cfg)
             plotting.add_vega_labels(ax, cfg)
-            plotting.add_one_model(ax, self.models[cfg["color"]][self.z[cfg["color"]].value], "k")
+            plotting.add_one_model(ax, self.models[this_color][self.z[this_color].value], "k")
 
-            # I want to plot both the low and high models, so get those zs
-            high_z = self.z[cfg["color"]].value + \
-                     self.z[cfg["color"]].upper_error
-            low_z = self.z[cfg["color"]].value - \
-                    self.z[cfg["color"]].lower_error
+            # I want to plot the models that match the 1 sigma errors, so we
+            # first need to get those redshifts
+            high_z = self.z[this_color].value + self.z[this_color].upper_error
+            low_z = self.z[this_color].value - self.z[this_color].lower_error
 
-            plotting.add_one_model(ax, self.models[cfg["color"]][high_z],
-                                   "#AAAAAA")
-            plotting.add_one_model(ax, self.models[cfg["color"]][low_z],
-                                   "#AAAAAA")
-            plotting.add_redshift(ax, self.z[cfg["color"]])
+            # then plot the models in light grey
+            light_grey = "#AAAAAA"
+            plotting.add_one_model(ax, self.models[this_color][high_z],
+                                   light_grey)
+            plotting.add_one_model(ax, self.models[this_color][low_z],
+                                   light_grey)
+            plotting.add_redshift(ax, self.z[this_color])
 
             self.figures.append(fig)
 
+        # If the user wants, plot the location of the RS members.
+        if params["location"] == "1":
+            fig, ax = plt.subplots(figsize=(7, 7))
+            ax = plotting.location(self, ax, this_color)
+            plotting.add_redshift(ax, self.z[this_color])
+            self.figures.append(fig)
 
-            # If the user wants, plot the location of the RS members.
-            if params["location"] == "1":
-                fig, ax = plt.subplots(figsize=(7, 7))
-                ax = plotting.location(self, ax, cfg["color"])
-                plotting.add_redshift(ax, self.z[cfg["color"]])
-                self.figures.append(fig)
-
+        # interactive mode requires some more work
         if params["interactive"] == "1":
+            # we'll show a two panel plot. The first panel shows the final CMD,
+            # the second shows the location plot. This is because they are the
+            # most useful for determining if the fitting worked and if the
+            # cluster within is interesting
             fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=[13, 6],
                                            tight_layout=True)
+            # final CMD
             ax1 = plotting.cmd(self, ax1, cfg)
             plotting.add_vega_labels(ax1, cfg)
-            plotting.add_redshift(ax1, self.z[cfg["color"]])
-            plotting.add_one_model(ax1, self.models[cfg["color"]][self.z[cfg["color"]].value], "k")
-            plotting.add_flags(ax1, self.flags[cfg["color"]])
+            plotting.add_redshift(ax1, self.z[this_color])
+            plotting.add_one_model(ax1, self.models[this_color][self.z[this_color].value], "k")
+            plotting.add_flags(ax1, self.flags[this_color])
 
-            ax2 = plotting.location(self, ax2, cfg["color"])
-            plotting.add_redshift(ax2, self.z[cfg["color"]])
-            plotting.add_flags(ax2, self.flags[cfg["color"]])
+            # location plot
+            ax2 = plotting.location(self, ax2, this_color)
+            plotting.add_redshift(ax2, self.z[this_color])
+            plotting.add_flags(ax2, self.flags[this_color])
 
+            # we close all other figures within the cluster object, so they
+            # aren't shown to the user. They can still be saved later, though.
             for s_fig in self.figures:
                 plt.close(s_fig)
 
+            # We then show the two panel plot to the user, so they can
+            # determine what to do with it.
             plt.show(block=False)
             while True:
                 flags = raw_input("Enter the flags for this cluster [i/f/enter]: ")
+                # validate user input, which can only be i, f, or enter
                 if flags not in ["i", "f", ""]:
                     print "That is not a valid choice."
                 else:
                     break
             plt.close(fig)
 
-            if flags == "f":
-                self.flags[cfg["color"]] += 8
-            elif flags == "i":
+            # we have the user input, so do what we need to with it.
+            if flags == "f":  # user flag
+                self.flags[this_color] += 8
+            elif flags == "i":  # interesting
                 self.interesting = 1
 
     @staticmethod
