@@ -879,6 +879,7 @@ class Cluster(object):
         a lot more than the non-best fits, then we mark the flag for a
         not clean red sequence.
 
+        :param cfg: Configuration dictionary for the color of interest.
         :return: None, but the flag is incremented if there isn't a clean red
                  sequence.
         """
@@ -958,6 +959,8 @@ class Cluster(object):
         outside the location cut. If the percentage inside isn't 75 percent
         higher, then the flag is raised.
 
+        :param color: Color used for this fitting. Is needed to set the flag.
+        :returns: None, but the flag is set if need be.
         """
         # find how many objects are near then center and not near the center
         # that are or are not red sequence members. I converted everything
@@ -983,32 +986,46 @@ class Cluster(object):
             not_near_rs_percent = rs_not_near_center / total_not_near_center
 
             # raise the flag if the percent near the center isn't high enough.
+            # "high enough" is arbitrary, and can be adjusted.
             if near_rs_percent <= not_near_rs_percent * 1.75:
                 self.flags[color] += 1
-        except ZeroDivisionError:
+        except ZeroDivisionError:  # there were zero sources near the center
             self.flags[color] += 1
 
     def rs_catalog(self, params):
         """ Writes a catalog of all the objects, indicating the RS members.
 
+        :param params: User's parameter dictionary.
         :returns: none, but the catalog is saved.
         """
 
+        # get the path where the file will be saved. It will be of the form
+        # name.rs.cat
         filepath = params["rs_catalog_dir"] + os.sep + self.name + ".rs" + \
             params["extension"]
+
+        try:
+            cat = open(filepath, "w")
+        except IOError:
+            raise IOError("The location to save the RS catalogs could not\n"
+                          "\tbe located. Make sure you specified the \n"
+                          "\t'rs_catalog_dir' parameter appropriately.\n"
+                          "\tThe code will create new files, but not new "
+                          "directories.")
 
         # get the type of info, and make a header using that
         d_type = params["type"]
 
+        # first add ra and dec
         header = "# {:<12s} {:<12s}".format("ra", "dec")
 
-        # also make a general formatters that will be used later
+        # also make a general formatters that will be used later for ra/dec
         coords_formatter = "  {:<12.7f} {:<12.7f}"
 
         phot_formatter = " {:<15.3f} {:<15.3f}"
         for band in self.sources_list[0].mags:
-            band = band.replace("sloan_", "")
-
+            band = band.replace("sloan_", "")  # we don't care about the sloan
+            # add these bands to the header
             header += " {:<15s} {:<15s}".format(band + "_" + d_type,
                                             band + "_" + d_type + "_err")
 
@@ -1018,31 +1035,28 @@ class Cluster(object):
         rs_formatter = " {:<10}"
         for color in self.z:
             header += rs_formatter.format("RS_" + color.replace("sloan_", ""))
-        try:
-            cat = open(filepath, "w")
-        except IOError:
-            raise IOError("The location to save the RS catalogs could not\n"
-                          "\tbe located. Make sure you specified the \n"
-                          "\t'rs_catalog_dir' parameter appropriately.\n"
-                          "\tThe code will create new files, but not new "
-                          "directories.")
+
         # I want the headers to line up over the data
         cat.write(header + "\n")
 
+        # then we can write all the sources to the catalog.
         for source in self.sources_list:
+            # start by adding the ra/dec
             line = coords_formatter.format(source.ra, source.dec)
-            # TODO: test this with mags and flux
 
+            # then add all the photometry
             for band in source.mags:
                 mag = source.mags[band].value
                 magerr = source.mags[band].error
                 if d_type == "mags":
+                    # we don't have to convert to flux
                     if params["mag_system"] == "ab":
                         line += phot_formatter.format(mag, magerr)
                     else:
                         mag += config.ab_to_vega[band]  # convert to Vega
                         line += phot_formatter.format(mag, magerr)
                 else:
+                    # convert to flux before writing to catalog
                     flux = self.mag_to_flux(mag, params["mag_zeropoint"])
                     fluxerr = self.mag_errors_to_flux_errors(magerr, flux)
 
@@ -1058,7 +1072,6 @@ class Cluster(object):
             line += "\n"
             cat.write(line)
         cat.close()
-
 
 
 def save_as_one_pdf(figs, filename):
