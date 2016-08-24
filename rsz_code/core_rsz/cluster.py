@@ -114,18 +114,45 @@ class Cluster(object):
         except ValueError:  # That's the error from a failed float conversion.
             return item
 
-    def _check_valid_int(self, params, band):
+    @staticmethod
+    def _check_valid_int(params, key):
+        """
+        Checks whether the value of they key in the parameters dictionary is
+        an integer. Throwns an error if not.
+
+        :param params: Dictionary with parameters specified by the user.
+        :param key: Name of the parameter that we are checking.
+        :type key: str
+        :return: If the value can be turned into an int, we return the integer
+                 value of it. If not, we raise a ValueError.
+        """
         try:
-            return int(params[band])
+            return int(params[key])
         except ValueError:
             raise ValueError("The parameter {} is formatted incorrectly.\n"
                              "\tIf it is supposed to be the index of a\n"
                              "\tband, then it should just be an integer.\n"
                              "\tIf not, then then this parameter is not\n"
                              "\tused by the code. Please remove it."
-                             "".format(band))
+                             "".format(key))
 
     def _check_valid_idx(self, split_line, idx, line_number):
+        """
+        See whether a given index is valid, given the line that is supposed
+        to index. If the index is invalid, we raise an error and explain what
+        went wront to the user.
+
+        :param split_line: Line that has been split into a list of items.
+        :type split_line: list
+        :param idx: Index that is supposed to be used on split_line.
+        :type idx: int
+        :param line_number: Line number in the catalog that split_line
+               holds the data for. Only used in error messages if something
+               goes wrong.
+        :type line_number: int
+        :return: The value of split_line[idx]. If that doesn't exist, we raise
+                 an error.
+        """
         try:
             return split_line[idx]
         except IndexError:
@@ -154,7 +181,6 @@ class Cluster(object):
 
         return ra, dec
 
-
     def get_mags(self, params, split_line, line_number):
         """ Parses the config file to get the magnitudes.
 
@@ -162,8 +188,8 @@ class Cluster(object):
         :param split_line: Line of the catalog split into the components.
         :param line_number: Line number in the catalog. Only used for error
                             messages if something doesn't work.
-        :return: ch1, ch2, ch1-ch2. Each will be in AB mags, and returned as
-                 a data object, to include the errors.
+        :return: dictionary with keys of band names (eg: ch1, r, z), and values
+                 of data objects with the mag and mag error in that band.
         """
         # see which bands were specified in the param file
         non_band_params = ["catalog_directory", "extension",
@@ -172,6 +198,8 @@ class Cluster(object):
                            "dist", "CMD", "fitting_procedure", "final_CMD",
                            "location", "interactive"]
 
+        # we'll iterate through all keys in the user's paramter dictionary,
+        # then take the ones that aren't the known non-band keys above.
         bands = []
         for key in params:
             if key in non_band_params:
@@ -179,6 +207,7 @@ class Cluster(object):
             # the key we have is either a flux/mag or an error
             if not key.endswith("_err"):
                 bands.append(key)
+                # if we have a flux, we need to have an error, too.
                 if key + "_err" not in params:
                     raise ValueError("The band {} does not have an error\n"
                                      "\tassociated with it. Please include\n"
@@ -187,8 +216,10 @@ class Cluster(object):
                                      "\ta band, please remove it. It is not\n"
                                      "\tneeded by the code.".format(key))
 
+        # then we are ready to get the info for the bands we identified
         mags = dict()
         for band in bands:
+            # verify the indicies the user specified, and then get the data.
             band_idx = self._check_valid_int(params, band)
             band_err_idx = self._check_valid_int(params, band + "_err")
 
@@ -204,6 +235,7 @@ class Cluster(object):
                     # interpreted as a bad mag
                     band_data = -0.1
                 # calculate magnitude err first, since we need to use the flux
+                # to calculate the magnitude.
                 band_data_err = Cluster.percent_flux_errors_to_mag_errors(
                     band_data_err / band_data)
                 band_data = Cluster.flux_to_mag(band_data,
@@ -227,12 +259,14 @@ class Cluster(object):
 
         :param params: Parameter dictionary that is passed all around the code.
         :param split_line: Line of the catalog split into the components.
+        :param line_number: Line number of this line in the catalog. Only used
+                            for error checking.
         :return: The distance of the object from the cluster center.
         """
-        if params["dist"] != "-99":
+        if params["dist"] != "-99":  # -99 means its not in the catalog.
             dist_idx = self._check_valid_int(params, "dist")
             return self._check_valid_idx(split_line, dist_idx, line_number)
-        else:
+        else:  # if the user didn't specify
             return None
 
     @staticmethod
