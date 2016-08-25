@@ -815,7 +815,7 @@ class Cluster(object):
         # we divide by number of objects - 2. More comments explain this when
         # this is done 20 lines below.
         if len(to_fit) <= 2:
-            return self.z
+            return self.z[cfg["color"]]
 
         # initialize lists for the chi squared distribution and the redshifts
         chi_sq_values = []
