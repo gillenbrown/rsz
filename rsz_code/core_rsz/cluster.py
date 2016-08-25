@@ -810,8 +810,11 @@ class Cluster(object):
         to_fit = [source for source in self.sources_list
                   if source.RS_member[cfg["color"]] and source.near_center]
 
-        # if there isn't anything to fit to, keep the initial z
-        if len(to_fit) == 0:
+        # if there isn't enough to fit to, keep the initial z. We need at
+        # least two objects to do the chi squared calculation. This is because
+        # we divide by number of objects - 2. More comments explain this when
+        # this is done 20 lines below.
+        if len(to_fit) <= 2:
             return self.z
 
         # initialize lists for the chi squared distribution and the redshifts
@@ -829,8 +832,13 @@ class Cluster(object):
                 error = source.colors[cfg["color"]].error
                 chi_sq += ((model_color - color)/error)**2
 
-            # reduce the chi square values
-            chi_sq /= (len(to_fit) - 2)  # dof = data points - parameters - 1
+            # reduce the chi square values. We will divide by the degrees of
+            # freedom, which = number of data points - number of parameters = 1
+            # here we have only 1 parameter (redshift), so it is just
+            # number of data points - 2. We can't divide by zero, and a
+            # number wouldn't make any sense, so we need at least 3 objects,
+            # which is why we have the check above.
+            chi_sq /= (len(to_fit) - 2)
             # put these values into the lists, so we can keep track of them
             chi_sq_values.append(chi_sq)
             redshifts.append(z)
