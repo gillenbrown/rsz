@@ -232,6 +232,7 @@ def location(cluster, ax, color):
     regardless of whether or not they passed the location cut.
 
     :param cluster: cluster to plot the data for
+    :param ax: Axes object that will be used to plot.
     :param color: Band combination used to select the RS members (ex: ch1-ch2)
     :return: ax of the plot
     """

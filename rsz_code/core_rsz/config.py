@@ -309,7 +309,3 @@ for color, cfg in cfg_matches.items():
         raise ValueError("The length of the `bluer_color_cut` and\n"
                          "\t`redder_color_cut` lists need to be the same\n"
                          "\tin the {} dictionary in config.py".format(color))
-
-
-
-

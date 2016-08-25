@@ -1027,7 +1027,7 @@ class Cluster(object):
             band = band.replace("sloan_", "")  # we don't care about the sloan
             # add these bands to the header
             header += " {:<15s} {:<15s}".format(band + "_" + d_type,
-                                            band + "_" + d_type + "_err")
+                                                band + "_" + d_type + "_err")
 
         center_formatter = " {:<7}"
         header += center_formatter.format("center")

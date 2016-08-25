@@ -39,7 +39,7 @@ class Source(object):
         This won't matter in the long run, since those meaningless colors
         won't get called.
 
-        :return: None, but self.colors is initialized appropiately
+        :return: None, but self.colors is initialized appropriately
         """
         self.colors = dict()
         for band_1 in self.mags:
@@ -60,6 +60,7 @@ class Source(object):
         :param red: reddest color a source can be to be a RS member
         :param bright: brightest magnitude "" "" "" "" "" "" ""
         :param faint: dimmest magnitude "" "" "" "" "" "" ""
+        :param red_band: Name of the redder band being used in the fitting.
         :return: None, but some sources will be marked as RS members.
         """
         if blue < self.colors[color] < red and \
