@@ -279,7 +279,7 @@ def location(cluster, ax, color):
     # we want the axes scaled so that ra and dec have the same scale. We have
     # to be clever, due to that cos(dec) term in the ra distance.
     # get the middle dec to use here
-    middle_dec = min([min(rs_member_dec), min(center_dec), min(rest_dec)])
+    middle_dec = (min(rest_dec) + max(rest_dec)) / 2.0
     ax.set_aspect(1.0 / np.cos(abs(middle_dec * np.pi / 180.0)),
                   adjustable="datalim")
     return ax

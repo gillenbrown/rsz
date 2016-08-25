@@ -244,7 +244,7 @@ class Cluster(object):
             # Convert to AB mags if needed. If we had flux, they are AB already
             if params["type"] == "mag" and params["mag_system"] == "vega":
                 try:
-                    band_data -= config.ab_to_vega(band)
+                    band_data -= config.ab_to_vega[band]
                 except KeyError:
                     raise KeyError("Please specify the AB/Vega conversion "
                                    "\tfor {} in config.py.".format(band))
@@ -1056,7 +1056,7 @@ class Cluster(object):
             for band in source.mags:
                 mag = source.mags[band].value
                 magerr = source.mags[band].error
-                if d_type == "mags":
+                if d_type == "mag":
                     # we don't have to convert to flux
                     if params["mag_system"] == "ab":
                         line += phot_formatter.format(mag, magerr)
