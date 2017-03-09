@@ -140,7 +140,9 @@ def add_all_models(fig, ax, steal_axs, cfg, models):
 
     for z in models:
         # use the scalar map to get the color for this redshift.
-        color_val = scalar_map.to_rgba(z)
+        color_val = scalar_map.to_rgba(float(z))  # have to convert to float
+        # to make it play nice with the floats used in that function
+
         # plot the line for this model
         add_one_model(ax, models[z], color_val)
 
@@ -278,8 +280,11 @@ def location(cluster, ax, color):
     ax.invert_xaxis()  # ra is backwards
     # we want the axes scaled so that ra and dec have the same scale. We have
     # to be clever, due to that cos(dec) term in the ra distance.
-    # get the middle dec to use here
-    middle_dec = (min(rest_dec) + max(rest_dec)) / 2.0
+    # get the middle dec to use here, defined as the average of the minimum and
+    # maximum dec in the cluster.
+    all_decs = rs_member_dec + center_dec + rest_dec
+    middle_dec = (min(all_decs) + max(all_decs)) / 2.0
+    # then change the scaling to make this work.
     ax.set_aspect(1.0 / np.cos(abs(middle_dec * np.pi / 180.0)),
                   adjustable="datalim")
     return ax

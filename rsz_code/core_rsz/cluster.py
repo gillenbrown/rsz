@@ -479,7 +479,7 @@ class Cluster(object):
                 flags = raw_input("Enter the flags for this cluster [i/f/enter]: ")
                 # validate user input, which can only be i, f, or enter
                 if flags not in ["i", "f", ""]:
-                    print "That is not a valid choice."
+                    print("That is not a valid choice.")
                 else:
                     break
             plt.close(fig)

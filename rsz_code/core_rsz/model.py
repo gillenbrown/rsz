@@ -257,12 +257,12 @@ def _evolve_model(model, filters, save_name):
     :return: None, but model will be saved.
     """
     # tell the user what they need to know
-    print "Calculating model evolution, will take a while..."
-    print "Only needs to be done once, unless you add more filters later."
-    print "Please ignore the warnings that will follow. The divide by zero\n" \
+    print("Calculating model evolution, will take a while...")
+    print("Only needs to be done once, unless you add more filters later.")
+    print("Please ignore the warnings that will follow. The divide by zero\n" \
           "errors are from EzGal's internals and are fine.\n" \
           "The deprecation warnings are from EzGal using \n" \
-          "Pyfits, which is old.\n"
+          "Pyfits, which is old.\n")
 
     # add a bunch of formation redshifts, so we shouldn't have to do that later
     zfs = np.arange(1.0, 6.001, 0.05)
