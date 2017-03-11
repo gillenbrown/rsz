@@ -9,6 +9,9 @@ try:
 except ImportError:
     pass
 
+import matplotlib as mpl
+mpl.rcParams['figure.dpi'] = 75
+
 import data
 import config
 

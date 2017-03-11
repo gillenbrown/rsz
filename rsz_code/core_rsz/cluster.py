@@ -84,7 +84,7 @@ class Cluster(object):
             for line_num, line in enumerate(cat, start=1):
                 # some catalog formats aren't formatted the way I'd like (the
                 # column headers aren't commented out), so ignore that line.
-                if not line.startswith("#"):
+                if not line.startswith("#") and not line.strip().startswith("id"):
                     # split the line, to make for easier parsing.
                     split_line = [self.to_float(i) for i in line.split()]
 
