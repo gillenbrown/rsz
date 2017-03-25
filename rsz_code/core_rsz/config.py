@@ -166,7 +166,7 @@ ch1_m_ch2["red_band"] = "ch2"
 
 ch1_m_ch2["z_min"] = decimal.Decimal("0.7")
 ch1_m_ch2["z_max"] = decimal.Decimal("1.7")
-ch1_m_ch2["correction"] = [-0.17985356,  1.1423761]
+ch1_m_ch2["correction"] = [-0.166250545506, 1.12218430826]
 ch1_m_ch2["slope_fit"] = [0, 0]
 
 ch1_m_ch2["plot_lims"] = [18, 22, -1, 0.5]
