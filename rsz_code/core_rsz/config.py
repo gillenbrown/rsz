@@ -12,6 +12,13 @@ import decimal
 # This file also stores AB to Vega conversions, so if your filters aren't
 # already in the ab_to_vega dictionary at the bottom, add them.
 #
+# ---------------------------- Model parameters --------------------------------
+#
+# There are things we can change about the SPS models that are used to model
+# the red sequence. Right now we can only adjust the formation redshift of this
+# model galaxy.
+zf = 3.0
+
 # --------------------------- Param documentation -----------------------------
 #
 # This section describes the parameters the code uses to fit the red sequence.
